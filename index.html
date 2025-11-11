@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VQE Optimization Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="logo-header">
+            <h1 style="color: var(--color-primary); font-size: 2.5rem; margin-bottom: 0;">AIXARIA</h1>
+        </header>
+        <header class="app-header">
+            <h1>VQE Optimization Analyzer</h1>
+            <p class="subtitle">Interactive Variational Quantum Eigensolver Analysis Tool</p>
+        </header>
+
+        <!-- Main Control Panel -->
+        <div class="control-panel">
+            <div class="control-group">
+                <label class="form-label">Use Case</label>
+                <select id="useCaseSelect" class="form-control">
+                    <option value="0">Quantum Chemistry - Hydrogen (H₂)</option>
+                    <option value="1">QAOA - Graph MaxCut</option>
+                    <option value="2">NISQ - Ising Model</option>
+                    <option value="3">QML - Binary Classifier</option>
+                    <option value="4">Finance - Portfolio Optimization</option>
+                    <option value="5">Adaptive VQE - Auto-Grow</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label class="form-label">Optimizer</label>
+                <select id="optimizerSelect" class="form-control">
+                    <option value="0">Adam</option>
+                    <option value="1">COBYLA</option>
+                    <option value="2">Gradient Descent</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label class="form-label">Learning Rate: <span id="learningRateValue">0.10</span></label>
+                <input type="range" id="learningRate" min="0.01" max="0.5" step="0.01" value="0.1" class="slider">
+            </div>
+            
+            <div class="control-group">
+                <label class="form-label">Max Iterations: <span id="maxIterValue">100</span></label>
+                <input type="range" id="maxIterations" min="20" max="200" step="10" value="100" class="slider">
+            </div>
+            
+            <div class="control-actions">
+                <button id="playBtn" class="btn btn--primary">Play</button>
+                <button id="pauseBtn" class="btn btn--secondary">Pause</button>
+                <button id="resetBtn" class="btn btn--outline">Reset</button>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="dashboard">Optimization Dashboard</button>
+            <button class="tab-btn" data-tab="landscape">Loss Landscape</button>
+            <button class="tab-btn" data-tab="circuit">Circuit Statistics</button>
+            <button class="tab-btn" data-tab="parameters">Parameter Evolution</button>
+            <button class="tab-btn" data-tab="metrics">Performance Metrics</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-pane active">
+                <div class="dashboard-grid">
+                    <div class="card stats-panel">
+                        <div class="card__body">
+                            <h3>Optimization Statistics</h3>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-label">Current Cost</span>
+                                    <span class="stat-value" id="currentCost">0.000</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Best Cost</span>
+                                    <span class="stat-value" id="bestCost">0.000</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Iteration</span>
+                                    <span class="stat-value" id="iteration">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Convergence Rate</span>
+                                    <span class="stat-value" id="convergenceRate">0%</span>
+                                </div>
+                            </div>
+                            <div class="problem-info">
+                                <h4>Current Problem</h4>
+                                <p id="hamiltonianDesc">Molecular H₂ ground state</p>
+                                <div class="info-row">
+                                    <span>Qubits: <strong id="qubitCount">4</strong></span>
+                                    <span>Layers: <strong id="layerCount">3</strong></span>
+                                    <span>Parameters: <strong id="paramCount">12</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card chart-container">
+                        <div class="card__body">
+                            <h3>Cost Function Convergence</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="costChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loss Landscape Tab -->
+            <div id="landscape" class="tab-pane">
+                <div class="landscape-grid">
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Loss Landscape - 2D Parameter Space</h3>
+                            <div class="landscape-controls">
+                                <div class="control-group">
+                                    <label class="form-label">Parameter Slice: θ<span id="sliceIndex">0</span> vs θ<span id="sliceIndex2">1</span></label>
+                                    <input type="range" id="sliceSelector" min="0" max="5" step="1" value="0" class="slider">
+                                </div>
+                            </div>
+                            <div class="heatmap-container">
+                                <canvas id="landscapeCanvas"></canvas>
+                            </div>
+                            <div class="landscape-legend">
+                                <span class="legend-item"><span class="legend-color" style="background: #3B82F6;"></span> Good regions (low cost)</span>
+                                <span class="legend-item"><span class="legend-color" style="background: #EF4444;"></span> Barren plateaus (high cost)</span>
+                                <span class="legend-item"><span class="legend-color" style="background: #10B981;"></span> Optimization path</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Circuit Statistics Tab -->
+            <div id="circuit" class="tab-pane">
+                <div class="circuit-grid">
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Circuit Configuration</h3>
+                            <div class="circuit-controls">
+                                <div class="control-group">
+                                    <label class="form-label">Qubits: <span id="qubitValue">4</span></label>
+                                    <input type="range" id="qubitSlider" min="2" max="10" step="1" value="4" class="slider">
+                                </div>
+                                <div class="control-group">
+                                    <label class="form-label">Layers: <span id="layerValue">3</span></label>
+                                    <input type="range" id="layerSlider" min="1" max="5" step="1" value="3" class="slider">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Gate Count Breakdown</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="gateChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Circuit Metrics</h3>
+                            <div class="metrics-list">
+                                <div class="metric-row">
+                                    <span class="metric-label">Total Gates</span>
+                                    <span class="metric-value" id="totalGates">28</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Circuit Depth</span>
+                                    <span class="metric-value" id="circuitDepth">12</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Parameter Count</span>
+                                    <span class="metric-value" id="totalParams">12</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Est. Execution Time</span>
+                                    <span class="metric-value" id="execTime">2.4 ms</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Memory Required</span>
+                                    <span class="metric-value" id="memoryReq">64 KB</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Parameter Distribution</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="paramDistChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parameter Evolution Tab -->
+            <div id="parameters" class="tab-pane">
+                <div class="param-grid">
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Parameter Radar View</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="radarChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Parameter Sensitivity Heatmap</h3>
+                            <div class="sensitivity-grid" id="sensitivityGrid"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="card full-width">
+                        <div class="card__body">
+                            <h3>Individual Parameter History</h3>
+                            <div class="small-multiples" id="paramHistoryGrid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metrics Tab -->
+            <div id="metrics" class="tab-pane">
+                <div class="metrics-grid">
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Optimizer Comparison</h3>
+                            <table class="comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th>Optimizer</th>
+                                        <th>Iterations to Converge</th>
+                                        <th>Final Error</th>
+                                        <th>Stability Score</th>
+                                        <th>Success Rate</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comparisonTableBody">
+                                    <tr>
+                                        <td>Adam</td>
+                                        <td>87</td>
+                                        <td>0.012</td>
+                                        <td>0.91</td>
+                                        <td>94%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>COBYLA</td>
+                                        <td>124</td>
+                                        <td>0.018</td>
+                                        <td>0.87</td>
+                                        <td>88%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Gradient Descent</td>
+                                        <td>96</td>
+                                        <td>0.015</td>
+                                        <td>0.85</td>
+                                        <td>92%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Noise Impact Simulation</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="noiseChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Key Performance Indicators</h3>
+                            <div class="kpi-grid">
+                                <div class="kpi-card">
+                                    <div class="kpi-value">95%</div>
+                                    <div class="kpi-label">Convergence Rate</div>
+                                    <div class="kpi-description">Percentage of runs reaching target accuracy</div>
+                                </div>
+                                <div class="kpi-card">
+                                    <div class="kpi-value">0.87</div>
+                                    <div class="kpi-label">Stability Score</div>
+                                    <div class="kpi-description">Consistency across different initializations</div>
+                                </div>
+                                <div class="kpi-card">
+                                    <div class="kpi-value">0.12</div>
+                                    <div class="kpi-label">Noise Sensitivity</div>
+                                    <div class="kpi-description">Lower is better - robustness to measurement noise</div>
+                                </div>
+                                <div class="kpi-card">
+                                    <div class="kpi-value">92%</div>
+                                    <div class="kpi-label">Success Rate</div>
+                                    <div class="kpi-description">Trials reaching global minimum</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
