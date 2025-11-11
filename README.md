@@ -110,7 +110,6 @@ Contributions are welcome! If you'd like to improve this project:
 
 ## Support This Project
 
-This project is **free and open source**. If you find it useful and would like to support its development, consider making a donation:
 
 ### Donation Options
 
