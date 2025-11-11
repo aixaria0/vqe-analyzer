@@ -116,9 +116,13 @@ This project is **free and open source**. If you find it useful and would like t
 
 - http://linkedin.com/in/ariafani
 
-Bitcoin (BTC): bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
-Ethereum (ETH): 0x774D95E2F263c56bE908E878B866D675df9282A4
-TON: UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
+.Bitcoin (BTC): bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
+
+.Ethereum (ETH): 0x774D95E2F263c56bE908E878B866D675df9282A4
+
+.TON: UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
+
+
 
 Every contribution, no matter how small, is greatly appreciated! 💙
 
