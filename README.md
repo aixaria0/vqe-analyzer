@@ -115,6 +115,7 @@ This project is **free and open source**. If you find it useful and would like t
 ### Donation Options
 
 - http://linkedin.com/in/ariafani
+
 Bitcoin (BTC):
 
 bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
