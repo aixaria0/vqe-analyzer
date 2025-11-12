@@ -5,9 +5,15 @@ An interactive **Variational Quantum Eigensolver (VQE)** analysis tool for visua
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-active-success.svg)
 
+## About the Author
+
+**Aria Fani** is a researcher and developer with a passion for quantum computing and artificial intelligence. With a background in AI security and bioinformatics, Aria is dedicated to creating open-source tools that make complex technologies accessible to a broader audience.
+
+Connect with Aria on [LinkedIn](https://www.linkedin.com/in/ariafani).
+
 ## Overview
 
-The VQE Optimization Analyzer is a web-based interactive tool designed to help researchers, students, and quantum computing enthusiasts understand and visualize the behavior of Variational Quantum Eigensolver algorithms across different use cases.
+The VQE Optimization Analyzer is a web-based interactive tool designed to help researchers, students, and quantum computing enthusiasts understand and visualize the behavior of Variational Quantum[...] 
 
 ## Features
 
@@ -110,7 +116,7 @@ Contributions are welcome! If you'd like to improve this project:
 
 ## Support This Project
 
-This project is **free and open source**. If you find it helpful, **buy me a tea!** ☕
+This project is **free and open source**. If you find it helpful, you can support me by **buying me a tea** ☕ or following me on **[LinkedIn](https://www.linkedin.com/in/ariafani)**.
 
 Your support helps maintain and improve this tool, add new features, and create more educational quantum computing resources.
 
@@ -169,7 +175,7 @@ SOFTWARE.
 
 ## Contact
 
-For questions, suggestions, or collaboration opportunities, please open an issue on GitHub.
+For questions or suggestions, please open an issue on GitHub. For collaboration opportunities or professional inquiries, feel free to connect with me on [LinkedIn](https://www.linkedin.com/in/ariafani).
 
 ---
 
