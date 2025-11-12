@@ -46,7 +46,7 @@ This is a pure frontend application requiring only a modern web browser with Jav
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/vqe-analyzer.git
+git clone https://github.com/Aixaria0/vqe-analyzer.git
 cd vqe-analyzer
 ```
 
