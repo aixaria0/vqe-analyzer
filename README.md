@@ -46,7 +46,7 @@ This is a pure frontend application requiring only a modern web browser with Jav
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/vqe-analyzer.git
+git clone https://github.com/Aixaria0/vqe-analyzer.git
 cd vqe-analyzer
 ```
 
@@ -175,7 +175,7 @@ This project is licensed under the MIT License - see below for details:
 ```
 MIT License
 
-Copyright (c) 2025 AIXARIA
+Copyright (c) 2025 Aria Fani "AIXARIA"
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -200,7 +200,7 @@ SOFTWARE.
 
 - Built with passion for quantum computing education
 - Inspired by the quantum computing research community
-- Powered by AIXARIA
+- Powered by AIXARIA "Aria Fani"
 - Comprehensive documentation created to support learning at all levels
 
 ## References & Further Learning
