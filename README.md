@@ -36,7 +36,7 @@ The VQE Optimization Analyzer is a web-based interactive tool designed to help r
   - Configurable iteration limits
   - Dynamic circuit architecture (qubits and layers)
 
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -73,6 +73,36 @@ npx http-server
 
 Then navigate to `http://localhost:8000` in your browser.
 
+## 📚 Documentation & Learning Resources
+
+**New to VQE or quantum computing?** We've created comprehensive guides to help you learn!
+
+### 🎓 Start Learning
+
+- **[📖 Complete Documentation Index](docs/README.md)** - Overview of all learning resources
+- **[🚀 Getting Started Guide](docs/GETTING-STARTED.md)** - Your first VQE simulation in 5 minutes
+- **[📘 VQE Fundamentals](docs/VQE-FUNDAMENTALS.md)** - Core concepts and theory
+- **[🔬 Use Cases Guide](docs/USE-CASES.md)** - Deep dive into all 6 applications
+- **[⚙️ Optimizers Guide](docs/OPTIMIZERS.md)** - Master Adam, COBYLA, and Gradient Descent
+- **[📊 Visualization Guide](docs/VISUALIZATION-GUIDE.md)** - Understand what you're seeing
+
+### Quick Learning Paths
+
+**Complete Beginner** (2-4 hours):
+```
+Getting Started → VQE Fundamentals → Visualization Guide → Practice
+```
+
+**Application Focus** (3-5 hours):
+```
+Getting Started → Use Cases Guide → VQE Fundamentals → Experiment
+```
+
+**Optimization Mastery** (4-6 hours):
+```
+Getting Started → VQE Fundamentals → Optimizers Guide → Visualization Guide
+```
+
 ## Usage
 
 1. **Select a Use Case**: Choose from the dropdown menu to explore different quantum computing applications
@@ -81,14 +111,24 @@ Then navigate to `http://localhost:8000` in your browser.
 4. **Run Simulation**: Click "Play" to start the optimization process
 5. **Explore Tabs**: Navigate through different visualization tabs to analyze the results
 
+💡 **New users**: See the [Getting Started Guide](docs/GETTING-STARTED.md) for a detailed walkthrough!
+
 ## Project Structure
 
 ```
 vqe-analyzer/
-├── index.html      # Main HTML structure
-├── style.css       # Styling and layout
-├── app.js          # Core application logic and simulations
-└── README.md       # This file
+├── index.html              # Main HTML structure
+├── style.css               # Styling and layout
+├── app.js                  # Core application logic and simulations
+├── README.md               # This file
+├── CONTRIBUTING.md         # Contribution guidelines
+└── docs/                   # Comprehensive documentation
+    ├── README.md           # Documentation index
+    ├── GETTING-STARTED.md  # Quick start guide
+    ├── VQE-FUNDAMENTALS.md # VQE theory and concepts
+    ├── USE-CASES.md        # Detailed use case analysis
+    ├── OPTIMIZERS.md       # Optimizer algorithms guide
+    └── VISUALIZATION-GUIDE.md  # Visualization interpretation
 ```
 
 ## Technology Stack
@@ -161,6 +201,26 @@ SOFTWARE.
 - Built with passion for quantum computing education
 - Inspired by the quantum computing research community
 - Powered by AIXARIA
+- Comprehensive documentation created to support learning at all levels
+
+## References & Further Learning
+
+This tool is designed for education and research. For deeper understanding:
+
+### Academic Papers
+- Peruzzo et al., "A variational eigenvalue solver on a photonic quantum processor" (Nature, 2014)
+- Tilly et al., "The Variational Quantum Eigensolver: A review" (Physics Reports, 2022)
+- McClean et al., "Barren plateaus in quantum neural network training landscapes" (Nature Communications, 2018)
+
+### Online Resources
+- [Qiskit Textbook](https://qiskit.org/textbook/) - Comprehensive quantum computing course
+- [IBM Quantum Experience](https://quantum-computing.ibm.com/) - Hands-on quantum programming
+- See [docs/README.md](docs/README.md) for more resources
+
+### Community
+- Join quantum computing forums and communities
+- Explore Qiskit, Cirq, and other quantum frameworks
+- Attend quantum computing conferences and workshops
 
 ## Contact
 
