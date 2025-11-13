@@ -14,15 +14,21 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v4
       with:
-        node-version: '14'  # Specify the Node.js version
+        node-version: '18'
 
     - name: Install dependencies
-      run: npm install
+      run: npm ci
+
+    - name: Show Node.js and npm versions
+      run: |
+        node --version
+        npm --version
+        npx --version
 
     - name: Run ESLint
-      run: npx eslint .  # Adjust the path according to your project structure
+      run: npx eslint --debug .

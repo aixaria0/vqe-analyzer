@@ -1,0 +1,23 @@
+{
+  "name": "vqe-analyzer",
+  "version": "1.0.0",
+  "description": "VQE Analyzer - A tool for analyzing Variational Quantum Eigensolver results",
+  "main": "app.js",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aixaria0/vqe-analyzer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/aixaria0/vqe-analyzer/issues"
+  },
+  "homepage": "https://github.com/aixaria0/vqe-analyzer#readme",
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}

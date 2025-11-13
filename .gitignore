@@ -23,3 +23,6 @@ yarn-error.log*
 # Temporary files
 *.tmp
 *.temp
+
+# Dependencies
+node_modules/
