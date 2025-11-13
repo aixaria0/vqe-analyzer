@@ -1,3 +1,4 @@
+/* global Chart */
 // Use Cases Data
 const useCases = [
   {
@@ -65,6 +66,17 @@ const useCases = [
     expectedIterations: 60,
     expectedFinalCost: -3.9,
     hamiltonianDescription: "Adaptive ansatz"
+  },
+  {
+    name: "Quantum Gem",
+    displayName: "Quantum Gem - Hybrid Prompt Defense",
+    qubits: 6,
+    layers: 3,
+    parameters: 18,
+    recommendedOptimizer: "Adam",
+    expectedIterations: 120,
+    expectedFinalCost: -2.8,
+    hamiltonianDescription: "Hybrid quantum-classical prompt injection detection demo"
   }
 ];
 
@@ -96,7 +108,6 @@ let state = {
 let costChart = null;
 let gateChart = null;
 let radarChart = null;
-let noiseChart = null;
 let paramDistChart = null;
 let landscapeCtx = null;
 let animationFrame = null;
@@ -297,7 +308,7 @@ function initializeCharts() {
   
   // Noise Chart
   const noiseCtx = document.getElementById('noiseChart').getContext('2d');
-  noiseChart = new Chart(noiseCtx, {
+  new Chart(noiseCtx, {
     type: 'line',
     data: {
       labels: ['0%', '1%', '2%', '3%', '4%', '5%'],
@@ -394,7 +405,6 @@ function runOptimizationStep() {
   
   const useCase = useCases[state.currentUseCase];
   const targetCost = useCase.expectedFinalCost;
-  const progress = state.currentIteration / state.maxIterations;
   
   // Simulate convergence with noise
   const optimizer = optimizers[state.currentOptimizer];
@@ -423,7 +433,7 @@ function runOptimizationStep() {
   state.costHistory.push(state.currentCost);
   
   // Update parameters
-  state.parameters = state.parameters.map((p, i) => {
+  state.parameters = state.parameters.map((p) => {
     const gradient = (Math.random() - 0.5) * state.learningRate;
     return (p + gradient) % (2 * Math.PI);
   });
