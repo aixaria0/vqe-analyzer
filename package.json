@@ -1,0 +1,18 @@
+{
+  "name": "vqe-analyzer",
+  "version": "1.0.0",
+  "description": "An interactive Variational Quantum Eigensolver (VQE) analysis tool",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint ."
+  },
+  "keywords": ["quantum", "vqe", "visualization"],
+  "author": "Aria Fani",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0"
+  }
+}
