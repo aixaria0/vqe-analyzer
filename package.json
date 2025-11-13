@@ -1,0 +1,24 @@
+{
+  "name": "vqe-analyzer",
+  "version": "1.0.0",
+  "description": "VQE Optimization Analyzer - Interactive visualization tool for quantum computing",
+  "main": "app.js",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aixaria0/vqe-analyzer.git"
+  },
+  "keywords": [
+    "quantum",
+    "vqe",
+    "optimization",
+    "visualization"
+  ],
+  "author": "Aria Fani",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
