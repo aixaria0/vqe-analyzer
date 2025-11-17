@@ -412,7 +412,7 @@ function runOptimizationStep() {
   
   if (optimizer.name === 'Adam') {
     convergenceRate = 0.96; // Adam is typically faster
-} else if (optimizer.name === 'COBYLA') {
+  } else if (optimizer.name === 'COBYLA') {
     convergenceRate = 0.90;
   } else if (optimizer.name === 'Gradient Descent') {
     convergenceRate = 0.92;
