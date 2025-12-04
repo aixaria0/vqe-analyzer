@@ -128,21 +128,16 @@ This project is **free and open source**. If you find it helpful, you can suppor
 
 Your support helps maintain and improve this tool, add new features, and create more educational quantum computing resources.
 
-### Cryptocurrency Donations
+## ⚡ Web3 Sponsorship
+Due to international banking restrictions, this open-source project is funded exclusively via decentralized finance.
+**Support Development:**
+* **USDT/USDC (TRC20):** `[TKGv7Jap7hE5DVtaDYBQWqXQjcdW61NRT6]`
+* **ETH/USDT (ERC20):** `[0x774D95E2F263c56bE908E878B866D675df9282A4]`
+* **TON:** `[UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK]`
 
-**Bitcoin (BTC)**:
-```
-bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
-```
+*Invoices for commercial integration available in USDC/USDT.*
 
-**Ethereum (ETH)**:
-```
-0x774D95E2F263c56bE908E878B866D675df9282A4
-```
 
-**TON**:
-```
-UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
 ```
 
 Every contribution, no matter how small, is greatly appreciated! 💙
