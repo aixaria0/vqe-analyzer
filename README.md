@@ -1,27 +1,22 @@
 # VQE Optimization Analyzer
-
-https://aixaria0.github.io/vqe-analyzer/
-
-An interactive **Variational Quantum Eigensolver (VQE)** analysis tool for visualizing quantum optimization algorithms in real-time.
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Status](https://img.shields.io/badge/status-active-success.svg)
-
-## About the Author
-
-**Aria Fani** is a researcher and developer with a passion for quantum computing and artificial intelligence. With a background in AI security and bioinformatics, Aria is dedicated to creating open-source tools that make complex technologies accessible to a broader audience.
-
-Connect with Aria on [LinkedIn](https://www.linkedin.com/in/ariafani).
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-active-success.svg)]()
 
 ## Overview
+**A High-Performance Interactive Data Visualization Engine.**
+This tool renders complex algorithmic performance landscapes in real-time using zero-dependency Vanilla JavaScript. While built for Quantum VQE, the underlying engine is production-ready for financial and industrial applications.
 
-The VQE Optimization Analyzer is a web-based interactive tool designed to help researchers, students, and quantum computing enthusiasts understand and visualize the behavior of Variational Quantum[...] 
-🚀 Industrial Use Cases
-While originally tuned for Quantum Algorithms, this engine is architecture-agnostic and production-ready for:
-• Fintech & Trading: visualizing real-time portfolio risk landscapes (Markowitz Optimization).
-• Machine Learning Ops: Tracking Neural Network Loss Function convergence in 3D.
-• Supply Chain: Cost-surface optimization for logistics networks.
-• Zero-Dependency: Built in high-performance Vanilla JS (No React/NPM bloat).
+## 🚀 Industrial Use Cases
+* **Fintech & Trading:** Visualizing real-time portfolio risk landscapes (Markowitz Optimization).
+* **Machine Learning Ops:** Tracking Neural Network Loss Function convergence in 3D.
+* **Supply Chain:** Cost-surface optimization for logistics networks.
+* **Zero-Dependency:** Built in high-performance Vanilla JS (No React/NPM bloat).
+
+## Features
+* **Multiple Use Cases:** Explore VQE, QAOA, and Financial Portfolio Optimization.
+* **Optimizer Comparison:** Test Adam, COBYLA, and Gradient Descent in real-time.
+* **Interactive Visualizations:** 2D loss landscape exploration and convergence tracking.
+.
 
 ## Features
 
