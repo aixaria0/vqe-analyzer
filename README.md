@@ -6,6 +6,8 @@
 **A High-Performance Interactive Data Visualization Engine.**
 This tool renders complex algorithmic performance landscapes in real-time using zero-dependency Vanilla JavaScript. While built for Quantum VQE, the underlying engine is production-ready for financial and industrial applications.
 
+https://aixaria0.github.io/vqe-analyzer/
+
 ## 🚀 Industrial Use Cases
 * **Fintech & Trading:** Visualizing real-time portfolio risk landscapes (Markowitz Optimization).
 * **Machine Learning Ops:** Tracking Neural Network Loss Function convergence in 3D.
