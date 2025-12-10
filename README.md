@@ -166,7 +166,6 @@ Contributions are welcome! If you'd like to improve this project:
 Every contribution, no matter how small, is greatly appreciated! 💙
 
 
-Your support helps maintain and improve this tool, add new features, and create more educational quantum computing resources. Every contribution, no matter how small, is greatly appreciated! 💙
 
 ## License
 
