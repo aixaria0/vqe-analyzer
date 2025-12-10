@@ -155,11 +155,11 @@ Contributions are welcome! If you'd like to improve this project:
 
 - http://linkedin.com/in/ariafani
 
-.Bitcoin (BTC): bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
+- Bitcoin (BTC): bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
 
-.Ethereum (ETH): 0x774D95E2F263c56bE908E878B866D675df9282A4
+- Ethereum (ETH): 0x774D95E2F263c56bE908E878B866D675df9282A4
 
-.TON: UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
+- TON: UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
 
 
 
