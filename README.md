@@ -153,7 +153,7 @@ Contributions are welcome! If you'd like to improve this project:
 
 ### Donation Options
 
-- http://linkedin.com/in/ariafani
+- [Aria Fani on LinkedIn](https://linkedin.com/in/ariafani)
 
 - Bitcoin (BTC): bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
 
