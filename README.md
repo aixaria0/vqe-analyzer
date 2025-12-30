@@ -155,20 +155,19 @@ Contributions are welcome! If you'd like to improve this project:
 
 ### Donation Options
 
-- http://linkedin.com/in/ariafani
+- [Aria Fani on LinkedIn](https://linkedin.com/in/ariafani)
 
-.Bitcoin (BTC): bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
+- Bitcoin (BTC): bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
 
-.Ethereum (ETH): 0x774D95E2F263c56bE908E878B866D675df9282A4
+- Ethereum (ETH): 0x774D95E2F263c56bE908E878B866D675df9282A4
 
-.TON: UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
+- TON: UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
 
 
 
 Every contribution, no matter how small, is greatly appreciated! 💙
 
 
-Your support helps maintain and improve this tool, add new features, and create more educational quantum computing resources. Every contribution, no matter how small, is greatly appreciated! 💙
 
 ## License
 
@@ -177,7 +176,7 @@ This project is licensed under the MIT License - see below for details:
 ```
 MIT License
 
-Copyright (c) 2025 AIXARIA
+Copyright (c) 2025 Aria Fani "AIXARIA"
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -202,7 +201,7 @@ SOFTWARE.
 
 - Built with passion for quantum computing education
 - Inspired by the quantum computing research community
-- Powered by AIXARIA
+- Powered by AIXARIA "Aria Fani"
 - Comprehensive documentation created to support learning at all levels
 
 ## References & Further Learning
