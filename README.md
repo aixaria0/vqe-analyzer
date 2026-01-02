@@ -7,9 +7,15 @@ An interactive **Variational Quantum Eigensolver (VQE)** analysis tool for visua
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-active-success.svg)
 
+## About the Author
+
+**Aria Fani** is a researcher and developer with a passion for quantum computing and artificial intelligence. With a background in AI security and bioinformatics, Aria is dedicated to creating open-source tools that make complex technologies accessible to a broader audience.
+
+Connect with Aria on [LinkedIn](https://www.linkedin.com/in/ariafani).
+
 ## Overview
 
-The VQE Optimization Analyzer is a web-based interactive tool designed to help researchers, students, and quantum computing enthusiasts understand and visualize the behavior of Variational Quantum Eigensolver algorithms across different use cases.
+The VQE Optimization Analyzer is a web-based interactive tool designed to help researchers, students, and quantum computing enthusiasts understand and visualize the behavior of Variational Quantum[...] 
 
 ## Features
 
@@ -48,6 +54,7 @@ This is a pure frontend application requiring only a modern web browser with Jav
 
 1. Clone the repository:
 ```bash
+git clone https://github.com/aixaria0/vqe-analyzer.git
 git clone https://github.com/Aixaria0/vqe-analyzer.git
 cd vqe-analyzer
 ```
@@ -152,8 +159,9 @@ Contributions are welcome! If you'd like to improve this project:
 
 ## Support This Project
 
+This project is **free and open source**. If you find it helpful, you can support me by **buying me a tea** ☕ or following me on **[LinkedIn](https://www.linkedin.com/in/ariafani)**.
 
-### Donation Options
+Your support helps maintain and improve this tool, add new features, and create more educational quantum computing resources.
 
 - [Aria Fani on LinkedIn](https://linkedin.com/in/ariafani)
 
@@ -176,6 +184,7 @@ This project is licensed under the MIT License - see below for details:
 ```
 MIT License
 
+Copyright (c) 2025 Aria Fani (AIXARIA)
 Copyright (c) 2025 Aria Fani "AIXARIA"
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -201,6 +210,7 @@ SOFTWARE.
 
 - Built with passion for quantum computing education
 - Inspired by the quantum computing research community
+- Created by **Aria Fani**
 - Powered by AIXARIA "Aria Fani"
 - Comprehensive documentation created to support learning at all levels
 
@@ -225,7 +235,7 @@ This tool is designed for education and research. For deeper understanding:
 
 ## Contact
 
-For questions, suggestions, or collaboration opportunities, please open an issue on GitHub.
+For questions or suggestions, please open an issue on GitHub. For collaboration opportunities or professional inquiries, feel free to connect with me on [LinkedIn](https://www.linkedin.com/in/ariafani).
 
 ---
 
