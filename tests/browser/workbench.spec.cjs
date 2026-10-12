@@ -5,7 +5,7 @@ const path = require('node:path');
 const VQE = require('../../engine.js');
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?example=1');
   await expect(page.locator('#runStatus')).toHaveText('Example · seed 42');
 });
 
@@ -114,7 +114,7 @@ test('shared links replay seed zero and reject out-of-range work', async ({ page
   await page.goto('/?problem=h2&seed=0&iterations=20&step=20'); await expect(page.locator('#runStatus')).toHaveText('Shared setup');
   await expect(page.locator('#seed')).toHaveValue('0'); await expect(page.locator('#iteration')).toHaveText('20');
   await page.goto('/?problem=h2&qubits=99'); await expect(page.locator('#notice')).toContainText('Invalid shared setup');
-  await expect(page.locator('#runStatus')).toHaveText('Example · seed 42');
+  await expect(page.locator('#runStatus')).toHaveText('Ready');
 });
 
 test('theme, keyboard tabs and numerical data are usable', async ({ page }) => {
@@ -129,7 +129,7 @@ test('theme, keyboard tabs and numerical data are usable', async ({ page }) => {
 
 test('blocked local storage and direct file loading are supported', async ({ page }) => {
   await page.addInitScript(() => { Object.defineProperty(window, 'localStorage', { get() { throw new Error('Storage blocked'); } }); });
-  await page.goto('file://' + path.resolve(__dirname, '../../index.html'));
+  await page.goto('file://' + path.resolve(__dirname, '../../index.html') + '?example=1');
   await expect(page.locator('#bestEnergy')).toHaveText('-1.85727');
   await page.locator('#tab-experiments').click(); await page.locator('#saveRunBtn').click();
   await expect(page.locator('#notice')).toContainText('kept in memory');

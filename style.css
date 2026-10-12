@@ -77,6 +77,12 @@ h1>span { color:var(--accent); }
 .progress-track { height:3px; background:var(--border); border-radius:2px; margin-top:18px; overflow:hidden; }
 .progress-track>div { height:100%; background:var(--accent); width:0; }
 .workbench-grid { display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:22px; align-items:start; }
+.learning-panel { display:flex; align-items:center; flex-wrap:wrap; gap:20px; padding:18px 22px; border:1px solid var(--border); border-left:3px solid var(--green); border-radius:6px; background:var(--panel); margin-bottom:22px; }
+.learning-panel>div { flex:1; min-width:90px; }
+.learning-panel strong { display:block; margin-top:6px; font:12px var(--mono); color:var(--green); }
+.learning-panel p { flex-basis:100%; margin:0; color:var(--muted); font-size:10px; }
+.learning-panel .text-button { font-size:9px; }
+@media(max-width:540px) { .learning-panel { gap:15px; padding:16px; } .learning-panel>div { flex-basis:40%; } .learning-panel .button { flex:1; } .slice-controls { align-items:start; } .slice-controls>label { min-width:100px; } }
 .analysis-area { min-width:0; }
 .view { display:flex; flex-direction:column; gap:20px; }
 .panel { border:1px solid var(--border); background:var(--panel); border-radius:8px; min-width:0; overflow:hidden; }

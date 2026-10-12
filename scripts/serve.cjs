@@ -3,7 +3,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
-const assets = { 'index.html': 'text/html', 'style.css': 'text/css', 'app.js': 'text/javascript', 'engine.js': 'text/javascript', 'charts.js': 'text/javascript', 'favicon.svg': 'image/svg+xml' };
+const assets = { 'index.html': 'text/html', 'style.css': 'text/css', 'app.js': 'text/javascript', 'engine.js': 'text/javascript', 'evolution.js': 'text/javascript', 'charts.js': 'text/javascript', 'favicon.svg': 'image/svg+xml' };
 http.createServer((req, res) => {
   const pathname = new URL(req.url, 'http://localhost').pathname;
   const name = pathname === '/' ? 'index.html' : pathname.slice(1);

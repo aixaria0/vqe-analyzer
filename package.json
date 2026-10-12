@@ -1,6 +1,6 @@
 {
   "name": "vqe-analyzer",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "description": "An interactive Variational Quantum Eigensolver (VQE) analysis tool",
   "main": "engine.js",
   "private": true,
@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test tests/engine.test.cjs",
+    "test": "node --test tests/*.test.cjs",
     "test:e2e": "playwright test",
     "test:python": "python3 -m unittest discover -s tests -p 'test_*.py'",
     "lint": "eslint .",
