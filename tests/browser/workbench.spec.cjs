@@ -92,6 +92,12 @@ test('invalid files and seed values display errors without breaking the current 
   await page.locator('#runBtn').click(); await expect(page.locator('#iteration')).toHaveText('100');
   await page.locator('#seed').fill('0'); await page.locator('#seed').press('Tab');
   await expect(page.locator('#iteration')).toHaveText('0');
+  await page.locator('#runBtn').click();
+  await expect.poll(async () => Number(await page.locator('#iteration').textContent())).toBeGreaterThan(0);
+  await page.locator('#seed').fill('-1'); await page.locator('#seed').press('Tab');
+  await expect(page.locator('#runStatus')).toHaveText('Invalid setup');
+  const paused = await page.locator('#iteration').textContent();
+  await page.waitForTimeout(150); await expect(page.locator('#iteration')).toHaveText(paused);
 });
 
 test('notebook survives reload and replays the saved experiment', async ({ page }) => {

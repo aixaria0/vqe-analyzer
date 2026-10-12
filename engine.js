@@ -27,6 +27,7 @@
   }
 
   function validateConfig(config) {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid experiment setup.');
     if (!PROBLEMS.some(p => p.id === config.problem)) throw new Error('Unknown problem.');
     if (!Number.isInteger(config.qubits) || config.qubits < 2 || config.qubits > 6) throw new Error('Qubits must be between 2 and 6.');
     if (config.problem === 'h2' && config.qubits !== 2) throw new Error('The H₂ Hamiltonian requires exactly two qubits.');

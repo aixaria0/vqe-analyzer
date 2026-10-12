@@ -257,7 +257,7 @@
           $('qubits').value = meta.qubits; $('layers').value = meta.layers;
         }
         reset(readConfig());
-      } catch (error) { notice(error.message); }
+      } catch (error) { cancelWork(); setStatus('Invalid setup'); updateButton(); notice(error.message); }
     }));
     $('runBtn').addEventListener('click', toggleRun);
     $('mobileRunBtn').addEventListener('click', toggleRun);

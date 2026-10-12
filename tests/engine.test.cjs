@@ -77,6 +77,7 @@ test('snapshot is an independent copy and dimensions follow circuit settings', (
   assert.deepEqual(VQE.circuitStats(2, 3), { rotations: 6, entanglers: 3, parameters: 6, totalGates: 9, depth: 6, stateBytes: 32 });
 });
 test('invalid imports cannot introduce unbounded work or nonfinite settings', () => {
+  assert.throws(() => VQE.validateConfig(null), /Invalid experiment setup/);
   for (const invalid of [{ problem: 'bad' }, { qubits: 3 }, { qubits: 100 }, { layers: -1 }, { optimizer: 'COBYLA' }, { seed: -1 }, { seed: 2 ** 32 }, { seed: NaN }, { iterations: 301 }, { iterations: 0 }, { learningRate: Infinity }]) assert.throws(() => VQE.validateConfig({ ...config, ...invalid }));
   assert.throws(() => VQE.simulate([NaN, 0], 2, 1));
 });
