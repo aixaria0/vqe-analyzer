@@ -1,367 +1,95 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VQE Optimization Analyzer</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101114">
+  <meta name="description" content="An open quantum optimization workbench. Explore real statevector VQE, energy landscapes, circuits and reproducible optimizer experiments in your browser.">
+  <title>VQE Analyzer · Quantum Optimization Workbench</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="engine.js" defer></script>
+  <script src="charts.js" defer></script>
+  <script src="app.js" defer></script>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header -->
-        <header class="logo-header">
-            <h1 style="color: var(--color-primary); font-size: 2.5rem; margin-bottom: 0;">AIXARIA</h1>
-        </header>
-        <header class="app-header">
-            <h1>VQE Optimization Analyzer</h1>
-            <p class="subtitle">Interactive Variational Quantum Eigensolver Analysis Tool</p>
-        </header>
-
-        <!-- Main Control Panel -->
-        <div class="control-panel">
-            <div class="control-group">
-                <label class="form-label">Use Case</label>
-                <select id="useCaseSelect" class="form-control">
-                    <option value="0">Quantum Chemistry - Hydrogen (H₂)</option>
-                    <option value="1">QAOA - Graph MaxCut</option>
-                    <option value="2">NISQ - Ising Model</option>
-                    <option value="3">QML - Binary Classifier</option>
-                    <option value="4">Finance - Portfolio Optimization</option>
-                    <option value="5">Adaptive VQE - Auto-Grow</option>
-                    <option value="6">Quantum Gem - Hybrid Prompt Defense</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label class="form-label">Optimizer</label>
-                <select id="optimizerSelect" class="form-control">
-                    <option value="0">Adam</option>
-                    <option value="1">COBYLA</option>
-                    <option value="2">Gradient Descent</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label class="form-label">Learning Rate: <span id="learningRateValue">0.10</span></label>
-                <input type="range" id="learningRate" min="0.01" max="0.5" step="0.01" value="0.1" class="slider">
-            </div>
-            
-            <div class="control-group">
-                <label class="form-label">Max Iterations: <span id="maxIterValue">100</span></label>
-                <input type="range" id="maxIterations" min="20" max="200" step="10" value="100" class="slider">
-            </div>
-            
-            <div class="control-actions">
-                <button id="playBtn" class="btn btn--primary">Play</button>
-                <button id="pauseBtn" class="btn btn--secondary">Pause</button>
-                <button id="resetBtn" class="btn btn--outline">Reset</button>
-            </div>
-        </div>
-
-        <!-- Tab Navigation -->
-        <nav class="tab-nav">
-            <button class="tab-btn active" data-tab="dashboard">Optimization Dashboard</button>
-            <button class="tab-btn" data-tab="landscape">Loss Landscape</button>
-            <button class="tab-btn" data-tab="circuit">Circuit Statistics</button>
-            <button class="tab-btn" data-tab="parameters">Parameter Evolution</button>
-            <button class="tab-btn" data-tab="metrics">Performance Metrics</button>
-        </nav>
-
-        <!-- Tab Content -->
-        <div class="tab-content">
-            <!-- Dashboard Tab -->
-            <div id="dashboard" class="tab-pane active">
-                <div class="dashboard-grid">
-                    <div class="card stats-panel">
-                        <div class="card__body">
-                            <h3>Optimization Statistics</h3>
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <span class="stat-label">Current Cost</span>
-                                    <span class="stat-value" id="currentCost">0.000</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Best Cost</span>
-                                    <span class="stat-value" id="bestCost">0.000</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Iteration</span>
-                                    <span class="stat-value" id="iteration">0</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Convergence Rate</span>
-                                    <span class="stat-value" id="convergenceRate">0%</span>
-                                </div>
-                            </div>
-                            <div class="problem-info">
-                                <h4>Current Problem</h4>
-                                <p id="hamiltonianDesc">Molecular H₂ ground state</p>
-                                <div class="info-row">
-                                    <span>Qubits: <strong id="qubitCount">4</strong></span>
-                                    <span>Layers: <strong id="layerCount">3</strong></span>
-                                    <span>Parameters: <strong id="paramCount">12</strong></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card chart-container">
-                        <div class="card__body">
-                            <h3>Cost Function Convergence</h3>
-                            <div class="chart-wrapper">
-                                <canvas id="costChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loss Landscape Tab -->
-            <div id="landscape" class="tab-pane">
-                <div class="landscape-grid">
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Loss Landscape - 2D Parameter Space</h3>
-                            <div class="landscape-controls">
-                                <div class="control-group">
-                                    <label class="form-label">Parameter Slice: θ<span id="sliceIndex">0</span> vs θ<span id="sliceIndex2">1</span></label>
-                                    <input type="range" id="sliceSelector" min="0" max="5" step="1" value="0" class="slider">
-                                </div>
-                            </div>
-                            <div class="heatmap-container">
-                                <canvas id="landscapeCanvas"></canvas>
-                            </div>
-                            <div class="landscape-legend">
-                                <span class="legend-item"><span class="legend-color" style="background: #3B82F6;"></span> Good regions (low cost)</span>
-                                <span class="legend-item"><span class="legend-color" style="background: #EF4444;"></span> Barren plateaus (high cost)</span>
-                                <span class="legend-item"><span class="legend-color" style="background: #10B981;"></span> Optimization path</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Circuit Statistics Tab -->
-            <div id="circuit" class="tab-pane">
-                <div class="circuit-grid">
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Circuit Configuration</h3>
-                            <div class="circuit-controls">
-                                <div class="control-group">
-                                    <label class="form-label">Qubits: <span id="qubitValue">4</span></label>
-                                    <input type="range" id="qubitSlider" min="2" max="10" step="1" value="4" class="slider">
-                                </div>
-                                <div class="control-group">
-                                    <label class="form-label">Layers: <span id="layerValue">3</span></label>
-                                    <input type="range" id="layerSlider" min="1" max="5" step="1" value="3" class="slider">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Gate Count Breakdown</h3>
-                            <div class="chart-wrapper">
-                                <canvas id="gateChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Circuit Metrics</h3>
-                            <div class="metrics-list">
-                                <div class="metric-row">
-                                    <span class="metric-label">Total Gates</span>
-                                    <span class="metric-value" id="totalGates">28</span>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label">Circuit Depth</span>
-                                    <span class="metric-value" id="circuitDepth">12</span>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label">Parameter Count</span>
-                                    <span class="metric-value" id="totalParams">12</span>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label">Est. Execution Time</span>
-                                    <span class="metric-value" id="execTime">2.4 ms</span>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label">Memory Required</span>
-                                    <span class="metric-value" id="memoryReq">64 KB</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Parameter Distribution</h3>
-                            <div class="chart-wrapper">
-                                <canvas id="paramDistChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Parameter Evolution Tab -->
-            <div id="parameters" class="tab-pane">
-                <div class="param-grid">
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Parameter Radar View</h3>
-                            <div class="chart-wrapper">
-                                <canvas id="radarChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Parameter Sensitivity Heatmap</h3>
-                            <div class="sensitivity-grid" id="sensitivityGrid"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="card full-width">
-                        <div class="card__body">
-                            <h3>Individual Parameter History</h3>
-                            <div class="small-multiples" id="paramHistoryGrid"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Performance Metrics Tab -->
-            <div id="metrics" class="tab-pane">
-                <div class="metrics-grid">
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Optimizer Comparison</h3>
-                            <table class="comparison-table">
-                                <thead>
-                                    <tr>
-                                        <th>Optimizer</th>
-                                        <th>Iterations to Converge</th>
-                                        <th>Final Error</th>
-                                        <th>Stability Score</th>
-                                        <th>Success Rate</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="comparisonTableBody">
-                                    <tr>
-                                        <td>Adam</td>
-                                        <td>87</td>
-                                        <td>0.012</td>
-                                        <td>0.91</td>
-                                        <td>94%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>COBYLA</td>
-                                        <td>124</td>
-                                        <td>0.018</td>
-                                        <td>0.87</td>
-                                        <td>88%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Gradient Descent</td>
-                                        <td>96</td>
-                                        <td>0.015</td>
-                                        <td>0.85</td>
-                                        <td>92%</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Noise Impact Simulation</h3>
-                            <div class="chart-wrapper">
-                                <canvas id="noiseChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Key Performance Indicators</h3>
-                            <div class="kpi-grid">
-                                <div class="kpi-card">
-                                    <div class="kpi-value">95%</div>
-                                    <div class="kpi-label">Convergence Rate</div>
-                                    <div class="kpi-description">Percentage of runs reaching target accuracy</div>
-                                </div>
-                                <div class="kpi-card">
-                                    <div class="kpi-value">0.87</div>
-                                    <div class="kpi-label">Stability Score</div>
-                                    <div class="kpi-description">Consistency across different initializations</div>
-                                </div>
-                                <div class="kpi-card">
-                                    <div class="kpi-value">0.12</div>
-                                    <div class="kpi-label">Noise Sensitivity</div>
-                                    <div class="kpi-description">Lower is better - robustness to measurement noise</div>
-                                </div>
-                                <div class="kpi-card">
-                                    <div class="kpi-value">92%</div>
-                                    <div class="kpi-label">Success Rate</div>
-                                    <div class="kpi-description">Trials reaching global minimum</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <a class="skip-link" href="#main">Skip to workbench</a>
+  <aside class="sidebar">
+    <a class="brand" href="./" aria-label="VQE Analyzer home">
+      <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><path d="m5 10 13-7 13 7v16l-13 7-13-7Z"/><path d="m5 10 13 8 13-8M18 18v15M5 26l13-8 13 8"/><circle cx="18" cy="18" r="3"/></svg>
+      <span>VQE<span class="brand-sub">ANALYZER</span></span>
+    </a>
+    <div class="sidebar-label">WORKSPACE <span>01</span></div>
+    <nav class="tabs" role="tablist" aria-label="Analysis views" aria-orientation="vertical">
+      <button class="tab active" id="tab-overview" role="tab" aria-selected="true" aria-controls="overview" data-tab="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3zM9 3v18M9 11h12"/></svg></span> Overview <span class="nav-arrow">↗</span></button>
+      <button class="tab" id="tab-landscape" role="tab" aria-selected="false" aria-controls="landscape" tabindex="-1" data-tab="landscape"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 18 6-12 5 9 4-6 5 9M2 21h20"/></svg></span> Landscape</button>
+      <button class="tab" id="tab-circuit" role="tab" aria-selected="false" aria-controls="circuit" tabindex="-1" data-tab="circuit"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7h20M2 17h20M7 4h6v6H7zM18 7v10"/><circle cx="18" cy="17" r="3"/></svg></span> Circuit</button>
+      <button class="tab" id="tab-parameters" role="tab" aria-selected="false" aria-controls="parameters" tabindex="-1" data-tab="parameters"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h20M2 12h20M2 18h20"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></svg></span> Parameters</button>
+      <button class="tab" id="tab-experiments" role="tab" aria-selected="false" aria-controls="experiments" tabindex="-1" data-tab="experiments"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2h8M10 2v8l-6 10h16l-6-10V2M7 15h10"/></svg></span> Experiments</button>
+    </nav>
+    <div class="sidebar-note"><span class="tiny-orbit" aria-hidden="true">⟨ψ|</span><p>Small circuits.<br>Big questions.</p><span>EXPLORE THE VARIATIONAL PRINCIPLE</span></div>
+    <div class="sidebar-bottom">
+      <div class="local-indicator"><span class="status-dot"></span> Local statevector engine</div>
+      <button id="aboutBtn" class="sidebar-link">↗ &nbsp; About this workbench</button>
+      <a class="sidebar-link" href="https://github.com/aixaria0/vqe-analyzer" target="_blank" rel="noopener noreferrer">↗ &nbsp; Source on GitHub</a>
+      <div class="signature">BY ARIA FANI <span>v2.0</span></div>
     </div>
-
-    <!-- Footer -->
-    <footer style="background: var(--color-bg-secondary); padding: 2rem; text-align: center; margin-top: 3rem; border-top: 1px solid var(--color-border);">
-        <div style="max-width: 800px; margin: 0 auto;">
-            <h3 style="color: var(--color-primary); margin-bottom: 1rem;">Support This Project</h3>
-            <p style="color: var(--color-text-secondary); margin-bottom: 1.5rem;">
-                If you find this tool helpful, <strong>buy me a tea!</strong> ☕<br>
-                Your support helps maintain and improve this educational resource.
-            </p>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin: 1.5rem 0; text-align: left;">
-                <div style="background: var(--color-bg-primary); padding: 1rem; border-radius: 8px; border: 1px solid var(--color-border);">
-                    <strong style="color: var(--color-accent-1);">Bitcoin (BTC)</strong>
-                    <p style="font-family: monospace; font-size: 0.85rem; word-break: break-all; color: var(--color-text-primary); margin-top: 0.5rem;">
-                        bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6
-                    </p>
-                </div>
-                <div style="background: var(--color-bg-primary); padding: 1rem; border-radius: 8px; border: 1px solid var(--color-border);">
-                    <strong style="color: var(--color-accent-2);">Ethereum (ETH)</strong>
-                    <p style="font-family: monospace; font-size: 0.85rem; word-break: break-all; color: var(--color-text-primary); margin-top: 0.5rem;">
-                        0x774D95E2F263c56bE908E878B866D675df9282A4
-                    </p>
-                </div>
-                <div style="background: var(--color-bg-primary); padding: 1rem; border-radius: 8px; border: 1px solid var(--color-border);">
-                    <strong style="color: var(--color-accent-3);">TON</strong>
-                    <p style="font-family: monospace; font-size: 0.85rem; word-break: break-all; color: var(--color-text-primary); margin-top: 0.5rem;">
-                        UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK
-                    </p>
-                </div>
-            </div>
-            
-            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border);">
-                <p style="color: var(--color-text-secondary); font-size: 0.9rem;">
-                    Made with ❤️ by <strong style="color: var(--color-primary);">Aria Fani</strong> for the quantum computing community
-                </p>
-                <p style="color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">
-                    Open Source • MIT License • <a href="https://github.com/aixaria0/vqe-analyzer" target="_blank" style="color: var(--color-accent-1); text-decoration: none;">GitHub</a>
-                </p>
-            </div>
+  </aside>
+  <main id="main" class="main" tabindex="-1">
+    <header class="topbar"><div class="breadcrumb">Quantum workspace <span>/</span> <strong id="viewName">Overview</strong></div><div class="topbar-actions"><span class="environment"><span class="status-dot"></span> NOISELESS SIMULATOR</span><button id="themeBtn" class="icon-button" aria-label="Switch to light theme" title="Toggle theme">◐</button><button id="shareBtn" class="button small">↗ Share setup</button></div></header>
+    <div class="workspace">
+      <section class="page-heading"><div><div class="eyebrow"><span class="accent-line"></span> QUANTUM OPTIMIZATION WORKBENCH</div><h1>Find the lowest energy<span>.</span></h1><p>Explore the circuit. Follow the gradient. Make every run reproducible.</p></div><div class="run-badge" id="runBadge"><span class="status-dot"></span> <span id="runStatus">Ready</span></div></section>
+      <section class="metric-strip" aria-label="Current experiment results">
+        <div class="metric"><span class="metric-label">CURRENT ENERGY <span>↘</span></span><div><strong id="currentEnergy">—</strong> <span class="unit" data-unit>Ha</span></div><small id="energyChange">Initial state</small></div>
+        <div class="metric"><span class="metric-label">BEST ENERGY <span>◇</span></span><div><strong id="bestEnergy">—</strong> <span class="unit" data-unit>Ha</span></div><small>Lowest evaluated iterate</small></div>
+        <div class="metric"><span class="metric-label">GAP TO EXACT <span>↕</span></span><div><strong id="energyGap">—</strong> <span class="unit" data-unit>Ha</span></div><small id="referenceLabel">Exact diagonalization reference</small></div>
+        <div class="metric"><span class="metric-label">ITERATION <span>⟳</span></span><div><strong id="iteration">0</strong><span id="iterationBudget" class="budget"> / 100</span></div><div class="progress-track"><div id="progressBar"></div></div></div>
+      </section>
+      <div class="workbench-grid">
+        <div class="analysis-area">
+          <section id="overview" class="view" role="tabpanel" aria-labelledby="tab-overview">
+            <article class="panel convergence-panel"><div class="panel-heading"><div><span class="eyebrow">THE OPTIMIZATION JOURNEY</span><h2>Energy convergence</h2></div><span class="pill" id="chartOptimizer">Adam</span></div><div class="chart-legend"><span><i class="legend-dot coral"></i> Current energy</span><span><i class="legend-dot violet"></i> Best so far</span><span><i class="legend-line"></i> Exact reference</span></div><div class="plot"><canvas id="energyChart" role="img" aria-label="Energy versus iteration"></canvas><div class="chart-tooltip" id="energyTooltip" hidden></div></div><div class="chart-footer"><span id="evaluationCount">0 objective evaluations</span><button class="text-button" id="showDataBtn">View numerical data ↗</button></div></article>
+            <div class="overview-bottom"><article class="panel"><div class="panel-heading"><div><span class="eyebrow">A SLICE OF THE SEARCH SPACE</span><h2>Energy landscape</h2></div><button class="icon-button" data-open="landscape" aria-label="Explore energy landscape">↗</button></div><div class="mini-landscape"><canvas id="miniLandscape" role="img" aria-label="Two-parameter energy slice"></canvas></div><div class="landscape-key"><span>LOW ENERGY</span><i></i><span>HIGH ENERGY</span></div></article><article class="panel state-panel"><div class="panel-heading"><div><span class="eyebrow">THE CURRENT QUANTUM STATE</span><h2>Basis probabilities</h2></div><span class="pill" id="basisCount">4 states</span></div><div class="probability-plot"><canvas id="probabilityChart" role="img" aria-label="Current computational basis probabilities"></canvas></div><div class="chart-footer"><span>Exact amplitudes · no shot sampling</span></div></article></div>
+            <div class="context-note"><span aria-hidden="true">ⓘ</span><p id="problemNote"></p></div>
+          </section>
+          <section id="landscape" class="view" role="tabpanel" aria-labelledby="tab-landscape" hidden>
+            <article class="panel"><div class="panel-heading"><div><span class="eyebrow">ENERGY TOPOGRAPHY</span><h2>Look beneath the curve.</h2></div><span class="pill">32 × 32 samples</span></div><p class="panel-description">A conditional slice through the real objective. Other angles are held at the initial state, so the path shows a projection, not the full energy trajectory.</p><div class="slice-controls"><label for="sliceX">Horizontal angle<select id="sliceX"></select></label><label for="sliceY">Vertical angle<select id="sliceY"></select></label><span class="path-key"><i class="legend-dot coral"></i> Projected trajectory</span></div><div class="large-landscape"><canvas id="landscapeChart" role="img" aria-label="Energy landscape with projected optimization path"></canvas></div><div class="landscape-key"><span id="landscapeMin">LOW</span><i></i><span id="landscapeMax">HIGH</span></div><p class="panel-description footnote">Axes span −π to π. Angle wraps are shown as disconnected path segments. A high energy region alone does not imply a barren plateau.</p></article>
+          </section>
+          <section id="circuit" class="view" role="tabpanel" aria-labelledby="tab-circuit" hidden>
+            <article class="panel"><div class="panel-heading"><div><span class="eyebrow">HARDWARE-EFFICIENT ANSATZ</span><h2>One rotation. Many possibilities.</h2></div><span class="pill">RY + CX</span></div><p class="panel-description">Start in |0…0⟩. Each layer applies a parameterized RY rotation to every qubit, followed by a sequential chain of controlled-X gates.</p><div class="circuit-scroll" id="circuitDiagram" tabindex="0" role="img" aria-label="Parameterized quantum circuit"></div><div class="circuit-legend"><span><i class="gate-key">RY</i> Trainable rotation</span><span><i class="cx-key">⊕</i> Controlled-X</span></div></article>
+            <div class="circuit-metrics" id="circuitMetrics"></div>
+            <article class="panel"><div class="panel-heading"><div><span class="eyebrow">THE OBJECTIVE</span><h2>Hamiltonian &amp; reference</h2></div></div><div id="hamiltonian" class="hamiltonian"></div><p class="panel-description">Bitstrings and Pauli words are ordered q[n−1] … q[0]. The reference is the smallest eigenvalue of the full Hamiltonian, independent of the ansatz.</p></article>
+          </section>
+          <section id="parameters" class="view" role="tabpanel" aria-labelledby="tab-parameters" hidden>
+            <article class="panel"><div class="panel-heading"><div><span class="eyebrow">INSIDE THE ANSATZ</span><h2>Parameter evolution</h2></div><span id="parameterCount" class="pill">6 angles</span></div><p class="panel-description">Unwrapped rotation angles across every evaluated iterate. Each row below reports its final value and parameter-shift gradient.</p><div class="plot"><canvas id="parameterChart" role="img" aria-label="Rotation angles versus optimization iteration"></canvas></div></article>
+            <article class="panel"><div class="panel-heading"><div><span class="eyebrow">LOCAL SENSITIVITY</span><h2>Where the gradient lives</h2></div></div><p class="panel-description">Exact parameter-shift derivatives at the current state. These diagnostic calls are separate from the optimizer evaluation count.</p><div id="parameterGrid" class="parameter-grid"></div></article>
+          </section>
+          <section id="experiments" class="view" role="tabpanel" aria-labelledby="tab-experiments" hidden>
+            <article class="panel"><div class="panel-heading"><div><span class="eyebrow">SAME START. DIFFERENT ROUTES.</span><h2>Compare the optimizers</h2></div><button class="button primary small" id="compareBtn">Run comparison ↗</button></div><p class="panel-description">Adam, gradient descent and SPSA start from identical seeded angles. Each gets the same iteration budget and learning-rate setting; evaluation costs differ. A single seed is an experiment, not a universal ranking.</p><div class="plot"><canvas id="comparisonChart" role="img" aria-label="Optimizer comparison energy curves"></canvas></div><div class="table-scroll" tabindex="0"><table><caption class="sr-only">Optimizer comparison results</caption><thead><tr><th>Optimizer</th><th>Best energy</th><th>Exact gap</th><th>Evaluations</th><th>Iterations</th></tr></thead><tbody id="comparisonRows"><tr><td colspan="5" class="empty-cell">Run a comparison to collect actual results.</td></tr></tbody></table></div></article>
+            <article class="panel"><div class="panel-heading"><div><span class="eyebrow">YOUR EXPERIMENT NOTEBOOK</span><h2>Saved runs</h2></div><button id="saveRunBtn" class="button small">+ Save current run</button></div><div id="savedRuns" class="saved-runs"></div></article>
+          </section>
         </div>
-    </footer>
-
-    <script src="app.js"></script>
+        <aside id="setup" class="config-panel panel" aria-label="Experiment configuration">
+          <div class="config-heading"><span class="eyebrow">EXPERIMENT SETUP</span><span class="config-number">/ 01</span></div>
+          <label class="field-label" for="problemSelect">Problem Hamiltonian</label><select id="problemSelect"><option value="h2">H₂ · Hydrogen molecule</option><option value="ising">Ising · Spin chain</option><option value="maxcut">MaxCut · Ring graph</option><option value="portfolio">Portfolio · Binary selection</option></select>
+          <div class="problem-tag" id="problemCategory">QUANTUM CHEMISTRY</div><div class="config-separator"></div>
+          <label class="field-label" for="optimizerSelect">Classical optimizer</label><select id="optimizerSelect"><option>Adam</option><option>Gradient descent</option><option>SPSA</option></select>
+          <div class="range-heading"><label for="learningRate">Learning rate</label><output id="rateValue" for="learningRate">0.08</output></div><input type="range" id="learningRate" min="0.005" max="0.5" step="any" value="0.08"><div class="range-labels"><span>0.005</span><span>0.500</span></div>
+          <div class="range-heading"><label for="maxIterations">Iteration budget</label><output id="budgetValue" for="maxIterations">100</output></div><input type="range" id="maxIterations" min="20" max="300" step="1" value="100"><div class="range-labels"><span>20</span><span>300</span></div>
+          <div class="config-separator"></div><div class="compact-fields"><div><label class="field-label" for="qubits">Qubits</label><select id="qubits"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div><div><label class="field-label" for="layers">Layers</label><select id="layers"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></div></div>
+          <label class="field-label seed-label" for="seed">Random seed <span>REPRODUCIBLE</span></label><input id="seed" type="number" min="0" max="4294967295" step="1" value="42" inputmode="numeric"><span class="field-help">Same setup + seed = same trajectory.</span>
+          <div class="run-actions"><button class="button primary" id="runBtn"><span aria-hidden="true">▶</span> Run experiment</button><button class="button reset-button" id="resetBtn" aria-label="Reset experiment" title="Reset (R)">↺</button></div><button id="exampleBtn" class="text-button example-button">Load a completed H₂ example ↗</button>
+          <div class="run-meta"><span>PARAMETERS <strong id="setupParams">6</strong></span><span>COMPUTE <strong id="computeTime">0 ms</strong></span></div>
+          <div class="export-row"><button id="exportJsonBtn" class="text-button">↓ JSON</button><button id="exportCsvBtn" class="text-button">↓ CSV</button><button id="importBtn" class="text-button">↑ Import</button><input type="file" id="importFile" accept=".json,application/json" hidden></div>
+        </aside>
+      </div>
+      <footer class="workspace-footer"><span>VQE ANALYZER <span class="footer-slash">/</span> An open experiment by <a href="https://github.com/aixaria0" target="_blank" rel="noopener noreferrer">Aria Fani</a></span><span>EXACT STATEVECTOR · LOCAL COMPUTATION · MIT <button id="footerAboutBtn" class="text-button">About ↗</button></span></footer>
+    </div>
+  </main>
+  <div class="mobile-controls"><button id="mobileRunBtn" class="button primary">Run experiment</button><button id="mobileSetupBtn" class="button">Experiment setup ↑</button></div>
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <dialog id="aboutDialog"><div class="dialog-heading"><span class="eyebrow">FROM A FIRST REPOSITORY, FORWARD.</span><button class="icon-button" data-close="aboutDialog" aria-label="Close about dialog">×</button></div><h2>Small enough to understand.<br>Real enough to explore.</h2><p>VQE Analyzer is Aria Fani’s quantum optimization workbench. It runs small, noiseless statevector experiments entirely on your device.</p><p>Energy is evaluated from the actual circuit state. Adam and gradient descent use exact parameter-shift derivatives; SPSA uses two perturbed evaluations per step. Reference energies come from exact diagonalization.</p><p>This is an educational simulator. It does not execute on quantum hardware, model device noise, or guarantee the ansatz reaches the ground state. H₂ reports electronic energy without nuclear repulsion. The portfolio is a toy objective.</p><div class="dialog-footer"><span>Keyboard: Space to run/pause · R to reset</span><a href="https://github.com/aixaria0/vqe-analyzer" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></div><details class="support-details"><summary>Support independent development ☕</summary><p>ETH: <code>0x774D95E2F263c56bE908E878B866D675df9282A4</code></p><p>BTC: <code>bc1qel4tqp70my0cg07tn9q4k7q49gnf576j3zxqs6</code></p><p>TON: <code>UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK</code></p></details></dialog>
+  <dialog id="dataDialog"><div class="dialog-heading"><h2>Energy trace</h2><button class="icon-button" data-close="dataDialog" aria-label="Close numerical data">×</button></div><div class="table-scroll data-table" tabindex="0"><table><caption class="sr-only">Energy and best energy for each iteration</caption><thead><tr><th>Iteration</th><th>Energy</th><th>Best energy</th><th>Gap to exact</th></tr></thead><tbody id="traceRows"></tbody></table></div></dialog>
+  <noscript><div class="noscript">Enable JavaScript to run the local quantum simulator.</div></noscript>
 </body>
 </html>

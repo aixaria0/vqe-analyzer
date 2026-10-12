@@ -26,6 +26,9 @@ yarn-error.log*
 
 # Dependencies
 node_modules/
+playwright-report/
+test-results/
+.venv/
 
 # Python
 __pycache__/

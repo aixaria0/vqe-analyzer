@@ -53,6 +53,17 @@ python3 -m http.server 8000
 
 3. Make your changes and test thoroughly
 
+Use Node 22+ for development tooling. Run `npm ci`, `npm run lint`, and `npm test`.
+For UI changes, install Chromium with `npx playwright install chromium`, then run
+`npm run test:e2e`. The suite checks desktop, tablet and mobile behavior and
+automated accessibility rules in both themes. For numerical changes, install
+`requirements.txt`, run `npm run test:python`, and run `VQE_PYTHON_PARITY=1 npm test`
+to check the independent H₂ reference.
+
+Preserve direct `index.html` loading and avoid runtime network dependencies.
+Use actual circuit evaluations for every displayed numerical result. Document
+units, assumptions, and reference energies; keep toy objectives clearly labelled.
+
 ### Commit Message Guidelines
 
 - Use present tense ("Add feature" not "Added feature")
