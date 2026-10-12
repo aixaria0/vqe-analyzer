@@ -1,182 +1,127 @@
-# VQE Optimization Analyzer
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-active-success.svg)]()
+# VQE Analyzer
 
-## Overview
-**A High-Performance Interactive Data Visualization Engine.**
-This tool renders complex algorithmic performance landscapes in real-time using zero-dependency Vanilla JavaScript. While built for Quantum VQE, the underlying engine is production-ready for financial and industrial applications.
+[![Tests](https://github.com/aixaria0/vqe-analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/aixaria0/vqe-analyzer/actions/workflows/test.yml)
+[![Lint](https://github.com/aixaria0/vqe-analyzer/actions/workflows/lint.yml/badge.svg)](https://github.com/aixaria0/vqe-analyzer/actions/workflows/lint.yml)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-https://aixaria0.github.io/vqe-analyzer/
+**Small circuits. Big questions.**
 
-## 🚀 Industrial Use Cases
-* **Fintech & Trading:** Visualizing real-time portfolio risk landscapes (Markowitz Optimization).
-* **Machine Learning Ops:** Tracking Neural Network Loss Function convergence in 3D.
-* **Supply Chain:** Cost-surface optimization for logistics networks.
-* **Zero-Dependency:** Built in high-performance Vanilla JS (No React/NPM bloat).
+An open quantum optimization workbench by **Aria Fani**. My first repository, now built around real calculations: inspect the circuit, follow the energy, and replay the experiment from its seed.
 
-## Features
-* **Multiple Use Cases:** Explore VQE, QAOA, and Financial Portfolio Optimization.
-* **Optimizer Comparison:** Test Adam, COBYLA, and Gradient Descent in real-time.
-* **Interactive Visualizations:** 2D loss landscape exploration and convergence tracking.
-.
+[Open the workbench](https://aixaria0.github.io/vqe-analyzer/)
 
-## Features
+![VQE Analyzer workbench showing a computed H₂ experiment](docs/workbench.png)
 
-- **Multiple Use Cases**: Explore VQE applications in:
-  - Quantum Chemistry (H₂ molecule)
-  - QAOA for Graph MaxCut problems
-  - NISQ Ising Model simulations
-  - Quantum Machine Learning classifiers
-  - Financial Portfolio Optimization
-  - Adaptive VQE with auto-growing circuits
+## What runs here
 
-- **Optimizer Comparison**: Test different optimization algorithms:
-  - Adam optimizer
-  - COBYLA (Constrained Optimization BY Linear Approximation)
-  - Gradient Descent
+The browser evaluates `E(θ) = ⟨ψ(θ)|H|ψ(θ)⟩` from an actual statevector. Each ansatz layer applies one RY rotation per qubit, then a sequential nearest-neighbor CX chain. All amplitudes stay real for these circuits, so the engine uses a Float64 buffer.
 
-- **Interactive Visualizations**:
-  - Real-time cost function convergence tracking
-  - 2D loss landscape exploration
-  - Circuit statistics and gate count analysis
-  - Parameter evolution monitoring
-  - Performance metrics dashboard
+There is no build step, backend, CDN, telemetry, account, or hardware connection. HTML, CSS and vanilla JavaScript are the complete application. Development dependencies are only used for linting and tests.
 
-- **Customizable Parameters**:
-  - Adjustable learning rates
-  - Configurable iteration limits
-  - Dynamic circuit architecture (qubits and layers)
+| Problem | Objective | Size |
+| --- | --- | --- |
+| H₂ molecule | Electronic Hamiltonian at 0.735 Å; nuclear repulsion excluded | 2 qubits |
+| Ising chain | Open chain, `−Σ Zi Zi+1 − 0.7 Σ Xi` | 2–6 qubits |
+| MaxCut ring | Negative expected cut of an unweighted ring; one edge for 2 vertices | 2–6 qubits |
+| Portfolio | Toy binary selection: risk − return + budget penalty | 2–6 qubits |
 
-## Getting Started
+The full Hamiltonian gives the exact reference through small-matrix Jacobi diagonalization, or direct minimization for diagonal objectives. The ansatz may not reach that reference. MaxCut uses the same RY/CX ansatz as the other experiments; it is not a QAOA implementation.
 
-### Prerequisites
+## The workspace
 
-This is a pure frontend application requiring only a modern web browser with JavaScript enabled.
+- **Overview:** actual energy convergence, best iterate, exact gap and basis probabilities. Above eight states, the probability chart shows the eight most likely states.
+- **Landscape:** a sampled two-angle slice of the real objective, with other angles fixed at initialization. The path is a projection of the optimization trajectory. It is not a full-dimensional landscape or a barren-plateau detector.
+- **Circuit:** the generated gate diagram, circuit dimensions, amplitude-buffer memory and Hamiltonian.
+- **Parameters:** angle histories and exact parameter-shift gradients at the current state.
+- **Experiments:** same-seed comparisons of Adam, gradient descent and SPSA, plus a notebook of up to eight saved runs.
 
-### Installation
+Run, pause, resume or reset. Changing the setup resets the experiment and cancels pending work. Export the numerical trace as CSV or a complete run as JSON. Import and notebook replay recompute the energies instead of trusting stored results. Share links encode the setup and replay length. Dark and light themes, keyboard navigation and mobile controls are included.
 
-1. Clone the repository:
+Notebook and theme preferences are stored in the browser when storage is available. Export JSON for a portable copy; clearing browser storage clears the notebook.
+
+## Start
+
+Open `index.html` directly, or serve the directory:
+
 ```bash
 git clone https://github.com/aixaria0/vqe-analyzer.git
 cd vqe-analyzer
-```
-
-2. Open `index.html` in your web browser:
-```bash
-# On macOS
-open index.html
-
-# On Linux
-xdg-open index.html
-
-# On Windows
-start index.html
-```
-
-Alternatively, serve it using a local web server:
-```bash
-# Using Python 3
 python3 -m http.server 8000
-
-# Using Node.js http-server
-npx http-server
 ```
 
-Then navigate to `http://localhost:8000` in your browser.
+Visit `http://localhost:8000`. If Node 22+ is available, `npm run serve` starts a server that exposes only the public app assets; no installation is needed for that command.
 
-## Usage
+The initial H₂ example is computed locally: Adam, 3 layers, learning rate 0.08, 100 iterations, seed 42. It reaches a best electronic energy of approximately **−1.857266974 Ha**, compared with **−1.857275030 Ha** from exact diagonalization. This is one reproducible experiment, not a general convergence guarantee.
 
-1. **Select a Use Case**: Choose from the dropdown menu to explore different quantum computing applications
-2. **Configure Optimizer**: Select your preferred optimization algorithm
-3. **Adjust Parameters**: Use the sliders to set learning rate and maximum iterations
-4. **Run Simulation**: Click "Play" to start the optimization process
-5. **Explore Tabs**: Navigate through different visualization tabs to analyze the results
+**Keyboard:** Space runs or pauses; R resets when focus is outside a control. Arrow keys, Home and End navigate the analysis tabs.
 
-## Project Structure
+## Independent Python reference
 
-```
-vqe-analyzer/
-├── index.html      # Main HTML structure
-├── style.css       # Styling and layout
-├── app.js          # Core application logic and simulations
-└── README.md       # This file
+The NumPy solver implements the same H₂ circuit and all three optimizers independently. Its random generator matches the browser's initial angles. It requires no Qiskit installation or cloud credentials.
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 vqe_solver.py --seed 42 --iterations 100 --json h2-run.json
+python3 vqe_solver.py --optimizer SPSA
 ```
 
-## Technology Stack
+The exported JSON can be imported into the browser and recomputed. `VQE-SOLVER.py` remains as a compatibility entry point. Hardware execution is not implemented.
 
-- **HTML5**: Semantic markup
-- **CSS3**: Modern styling with CSS variables and grid layout
-- **JavaScript (ES6+)**: Vanilla JS for logic and interactivity
-- **Chart.js**: Data visualization library
+## Verify
 
-## Contributing
+Node **22 or newer** is required for development tooling.
 
-Contributions are welcome! If you'd like to improve this project:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Support This Project
-
-This project is **free and open source**. If you find it helpful, you can support me by **buying me a tea** ☕ or following me on **[LinkedIn](https://www.linkedin.com/in/ariafani)**.
-
-Your support helps maintain and improve this tool, add new features, and create more educational quantum computing resources.
-
-## ⚡ Web3 Sponsorship
-Due to international banking restrictions, this open-source project is funded exclusively via decentralized finance.
-**Support Development:**
-* **USDT/USDC (TRC20):** `[TKGv7Jap7hE5DVtaDYBQWqXQjcdW61NRT6]`
-* **ETH/USDT (ERC20):** `[0x774D95E2F263c56bE908E878B866D675df9282A4]`
-* **TON:** `[UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK]`
-
-*Invoices for commercial integration available in USDC/USDT.*
-
-
+```bash
+npm ci
+npm run lint
+npm test
+npx playwright install chromium
+npm run test:e2e
 ```
 
-Every contribution, no matter how small, is greatly appreciated! 💙
+For the independent numerical check:
 
-## License
-
-This project is licensed under the MIT License - see below for details:
-
-```
-MIT License
-
-Copyright (c) 2025 Aria Fani (AIXARIA)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+```bash
+python3 -m pip install -r requirements.txt
+npm run test:python
+VQE_PYTHON_PARITY=1 npm test
 ```
 
-## Acknowledgments
+Tests cover analytic Bell states and bit order, known spectra and variational bounds, gradients against finite differences, deterministic optimizers, real evaluation counts, configuration validation, and NumPy/JavaScript parity. Browser tests cover desktop, tablet and mobile layouts; run lifecycle; all views; imports and exports; shared links; notebook replay; blocked storage; direct file loading; and automated WCAG A/AA checks in both themes. Automated accessibility checks supplement manual review.
 
-- Built with passion for quantum computing education
-- Inspired by the quantum computing research community
-- Created by **Aria Fani**
+GitHub Actions runs ESLint, unit tests on Node 22 and 24, Python parity, browser tests and CodeQL for JavaScript, Python and workflow files. Browser reports include screenshots and failure traces.
 
-## Contact
+## Repository map
 
-For questions or suggestions, please open an issue on GitHub. For collaboration opportunities or professional inquiries, feel free to connect with me on [LinkedIn](https://www.linkedin.com/in/ariafani).
+```text
+index.html / style.css   Interface and responsive themes
+engine.js               Statevector, Hamiltonians, gradients and optimizers
+charts.js               Canvas plots and contour slices
+app.js                  Experiment lifecycle, UI, import/export and notebook
+vqe_solver.py           Independent NumPy H₂ reference
+tests/                  Numerical, Python and browser regression tests
+scripts/serve.cjs        Local static asset server
+```
 
----
+## Changes from v1
 
-**Made with ❤️ by Aria Fani for the quantum computing community**
+The old interface interpolated toward predefined costs, moved angles randomly and displayed static performance scores. V2 evaluates the circuit directly. Placeholder QML, adaptive-growth and “Quantum Gem” presets were retired until they have implemented objectives. The optimizer labelled COBYLA did not implement COBYLA; the workbench now provides actual Adam, gradient descent and SPSA. Static noise and success-rate claims were removed. Chart.js is no longer required.
+
+This is a noiseless educational simulator, limited to small real-amplitude circuits. It does not model hardware noise, demonstrate a quantum advantage, validate industrial portfolio strategies, or prove global convergence.
+
+## Reading
+
+- Peruzzo et al., [A variational eigenvalue solver on a quantum processor](https://arxiv.org/abs/1304.3061).
+- Schuld et al., [Evaluating analytic gradients on quantum hardware](https://arxiv.org/abs/1811.11184).
+
+## Support independent development
+
+Follow [Aria Fani on LinkedIn](https://www.linkedin.com/in/ariafani), open an issue, contribute an experiment, or buy me a tea ☕.
+
+- **USDT/USDC (TRC20):** `TKGv7Jap7hE5DVtaDYBQWqXQjcdW61NRT6`
+- **ETH/USDT (ERC20):** `0x774D95E2F263c56bE908E878B866D675df9282A4`
+- **TON:** `UQAdHM0Sd008XSW6B4xPfd2uU07zZratOVrerD6subpxgyNK`
+
+Commercial integration inquiries: open an issue or connect on LinkedIn.
+
+MIT © Aria Fani. See [LICENSE](LICENSE) and [CONTRIBUTING.md](CONTRIBUTING.md).

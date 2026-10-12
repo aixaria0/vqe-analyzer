@@ -1,653 +1,355 @@
-/* global Chart */
-// Use Cases Data
-const useCases = [
-  {
-    name: "Chemistry H₂",
-    displayName: "Quantum Chemistry - Hydrogen",
-    qubits: 4,
-    layers: 3,
-    parameters: 12,
-    recommendedOptimizer: "Adam",
-    expectedIterations: 100,
-    expectedFinalCost: -1.137,
-    hamiltonianDescription: "Molecular H₂ ground state"
-  },
-  {
-    name: "QAOA MaxCut",
-    displayName: "QAOA - Graph MaxCut",
-    qubits: 4,
-    layers: 2,
-    parameters: 8,
-    recommendedOptimizer: "Gradient Descent",
-    expectedIterations: 50,
-    expectedFinalCost: 3.8,
-    hamiltonianDescription: "4-node square graph MaxCut"
-  },
-  {
-    name: "NISQ Ising",
-    displayName: "NISQ - Ising Model",
-    qubits: 6,
-    layers: 2,
-    parameters: 12,
-    recommendedOptimizer: "COBYLA",
-    expectedIterations: 150,
-    expectedFinalCost: -4.2,
-    hamiltonianDescription: "Transverse-field Ising"
-  },
-  {
-    name: "ML Classifier",
-    displayName: "QML - Binary Classifier",
-    qubits: 4,
-    layers: 2,
-    parameters: 8,
-    recommendedOptimizer: "Adam",
-    expectedIterations: 50,
-    expectedFinalCost: 0.15,
-    hamiltonianDescription: "Data classification"
-  },
-  {
-    name: "Portfolio",
-    displayName: "Finance - Portfolio Optimization",
-    qubits: 4,
-    layers: 1,
-    parameters: 8,
-    recommendedOptimizer: "COBYLA",
-    expectedIterations: 100,
-    expectedFinalCost: 0.32,
-    hamiltonianDescription: "4-asset portfolio"
-  },
-  {
-    name: "Adaptive VQE",
-    displayName: "Adaptive VQE - Auto-Grow",
-    qubits: 4,
-    layers: 3,
-    parameters: 12,
-    recommendedOptimizer: "Adam",
-    expectedIterations: 60,
-    expectedFinalCost: -3.9,
-    hamiltonianDescription: "Adaptive ansatz"
-  },
-  {
-    name: "Quantum Gem",
-    displayName: "Quantum Gem - Hybrid Prompt Defense",
-    qubits: 6,
-    layers: 3,
-    parameters: 18,
-    recommendedOptimizer: "Adam",
-    expectedIterations: 120,
-    expectedFinalCost: -2.8,
-    hamiltonianDescription: "Hybrid quantum-classical prompt injection detection demo"
+/* global VQE, VQECharts */
+'use strict';
+
+(() => {
+  const $ = id => document.getElementById(id);
+  const defaults = { problem: 'h2', qubits: 2, layers: 3, optimizer: 'Adam', learningRate: 0.08, iterations: 100, seed: 42 };
+  const names = { overview: 'Overview', landscape: 'Energy landscape', circuit: 'Quantum circuit', parameters: 'Parameters', experiments: 'Experiments' };
+  let run, timer = null, busy = false, activeView = 'overview', computeMs = 0, landscapeData = null;
+  let comparison = [], comparisonToken = 0, noticeTimer, resizeFrame;
+  let saved = [];
+  const configControls = ['problemSelect', 'optimizerSelect', 'learningRate', 'maxIterations', 'qubits', 'layers', 'seed'];
+
+  function readConfig() {
+    return VQE.validateConfig({ problem: $('problemSelect').value, optimizer: $('optimizerSelect').value, learningRate: Number($('learningRate').value), iterations: Number($('maxIterations').value), qubits: Number($('qubits').value), layers: Number($('layers').value), seed: $('seed').value.trim() === '' ? NaN : Number($('seed').value) });
   }
-];
-
-const optimizers = [
-  { name: "Adam", learningRate: 0.1, momentum: 0.9, description: "Adaptive gradient-based optimizer" },
-  { name: "COBYLA", tolerance: 0.0001, description: "Gradient-free, noise-robust" },
-  { name: "Gradient Descent", learningRate: 0.05, description: "Standard gradient descent" }
-];
-
-// State Management
-let state = {
-  currentUseCase: 0,
-  currentOptimizer: 0,
-  learningRate: 0.1,
-  maxIterations: 100,
-  currentIteration: 0,
-  isRunning: false,
-  costHistory: [],
-  parameters: [],
-  parameterHistory: [],
-  bestCost: 0,
-  currentCost: 0,
-  qubits: 4,
-  layers: 3,
-  trajectory: []
-};
-
-// Chart instances
-let costChart = null;
-let gateChart = null;
-let radarChart = null;
-let paramDistChart = null;
-let landscapeCtx = null;
-let animationFrame = null;
-
-// Initialize application
-function init() {
-  setupEventListeners();
-  initializeCharts();
-  loadUseCase(0);
-  updateCircuitStats();
-  renderLandscape();
-  renderSensitivityHeatmap();
-  renderParameterHistory();
-}
-
-// Event Listeners
-function setupEventListeners() {
-  document.getElementById('useCaseSelect').addEventListener('change', (e) => {
-    loadUseCase(parseInt(e.target.value));
-  });
-  
-  document.getElementById('optimizerSelect').addEventListener('change', (e) => {
-    state.currentOptimizer = parseInt(e.target.value);
-  });
-  
-  document.getElementById('learningRate').addEventListener('input', (e) => {
-    state.learningRate = parseFloat(e.target.value);
-    document.getElementById('learningRateValue').textContent = state.learningRate.toFixed(2);
-  });
-  
-  document.getElementById('maxIterations').addEventListener('input', (e) => {
-    state.maxIterations = parseInt(e.target.value);
-    document.getElementById('maxIterValue').textContent = state.maxIterations;
-  });
-  
-  document.getElementById('playBtn').addEventListener('click', startOptimization);
-  document.getElementById('pauseBtn').addEventListener('click', pauseOptimization);
-  document.getElementById('resetBtn').addEventListener('click', resetOptimization);
-  
-  document.getElementById('qubitSlider').addEventListener('input', (e) => {
-    state.qubits = parseInt(e.target.value);
-    document.getElementById('qubitValue').textContent = state.qubits;
-    updateCircuitStats();
-  });
-  
-  document.getElementById('layerSlider').addEventListener('input', (e) => {
-    state.layers = parseInt(e.target.value);
-    document.getElementById('layerValue').textContent = state.layers;
-    updateCircuitStats();
-  });
-  
-  document.getElementById('sliceSelector').addEventListener('input', (e) => {
-    const idx = parseInt(e.target.value);
-    document.getElementById('sliceIndex').textContent = idx;
-    document.getElementById('sliceIndex2').textContent = idx + 1;
-    renderLandscape();
-  });
-  
-  // Tab navigation
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const tabName = e.target.dataset.tab;
-      switchTab(tabName);
+  function writeConfig(config) {
+    $('problemSelect').value = config.problem; $('optimizerSelect').value = config.optimizer;
+    $('learningRate').value = config.learningRate; $('maxIterations').value = config.iterations;
+    $('qubits').value = config.qubits; $('layers').value = config.layers; $('seed').value = config.seed;
+    $('rateValue').value = Number(config.learningRate).toFixed(3); $('budgetValue').value = config.iterations;
+    $('qubits').disabled = config.problem === 'h2';
+  }
+  function notice(message) {
+    $('notice').textContent = message; $('notice').hidden = false;
+    clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 5000);
+  }
+  function setStatus(label, running = false) {
+    $('runStatus').textContent = label; $('runBadge').classList.toggle('running', running);
+  }
+  function cancelWork() {
+    clearTimeout(timer); timer = null; busy = false;
+    comparisonToken++; $('compareBtn').disabled = false;
+    $('compareBtn').textContent = 'Run comparison ↗';
+  }
+  function updateButton() {
+    $('runBtn').innerHTML = busy ? '<span aria-hidden="true">Ⅱ</span> Pause experiment' : run.iteration >= run.config.iterations ? '<span aria-hidden="true">↺</span> Run again' : run.iteration ? '<span aria-hidden="true">▶</span> Resume experiment' : '<span aria-hidden="true">▶</span> Run experiment';
+    $('mobileRunBtn').textContent = $('runBtn').textContent;
+  }
+  function reset(config = readConfig(), status = 'Ready') {
+    cancelWork(); writeConfig(config); run = VQE.createRun(config); computeMs = 0;
+    comparison = []; $('comparisonRows').innerHTML = '<tr><td colspan="5" class="empty-cell">Run a comparison to collect actual results.</td></tr>';
+    landscapeData = null;
+    const options = run.parameters.map((_, i) => new Option(`θ${i} · layer ${Math.floor(i / config.qubits) + 1}`, i));
+    $('sliceX').replaceChildren(...options);
+    $('sliceY').replaceChildren(...options.map(option => option.cloneNode(true)));
+    $('sliceX').value = '0'; $('sliceY').value = '1';
+    $('problemCategory').textContent = run.problem.category;
+    $('problemNote').textContent = run.problem.description;
+    $('setupParams').textContent = run.parameters.length; $('parameterCount').textContent = `${run.parameters.length} angles`;
+    $('chartOptimizer').textContent = config.optimizer;
+    document.querySelectorAll('[data-unit]').forEach(node => { node.textContent = run.problem.unit; });
+    setStatus(status); update(); renderCircuit();
+  }
+  function update() {
+    const current = run.history.at(-1).energy;
+    $('currentEnergy').textContent = current.toFixed(5); $('bestEnergy').textContent = run.best.toFixed(5);
+    const gap = Math.max(0, run.best - run.problem.reference);
+    $('energyGap').textContent = gap < 0.001 ? gap.toExponential(2) : gap.toFixed(5);
+    $('referenceLabel').textContent = `Reference ${run.problem.reference.toFixed(6)} ${run.problem.unit}`;
+    $('energyChange').textContent = run.iteration ? `${(current - run.initial).toFixed(5)} from initial state` : 'Initial state · seed ' + run.config.seed;
+    $('iteration').textContent = run.iteration; $('iterationBudget').textContent = ` / ${run.config.iterations}`;
+    $('progressBar').style.width = `${run.iteration / run.config.iterations * 100}%`;
+    $('evaluationCount').textContent = `${run.evaluations.toLocaleString()} objective evaluations`;
+    $('computeTime').textContent = `${computeMs.toFixed(0)} ms`;
+    $('energyChart').setAttribute('aria-label', `Energy at iteration ${run.iteration}: ${current.toFixed(6)} ${run.problem.unit}. Best ${run.best.toFixed(6)}. Exact reference ${run.problem.reference.toFixed(6)}.`);
+    updateButton(); renderView();
+  }
+  function step() {
+    if (!busy) return;
+    const start = performance.now(); run.step(); computeMs += performance.now() - start;
+    if (run.iteration >= run.config.iterations) { busy = false; timer = null; setStatus('Budget complete'); notice('Experiment complete. Save or export the numerical trace.'); }
+    update();
+    if (busy) timer = setTimeout(step, 35);
+  }
+  function toggleRun() {
+    if (busy) { cancelWork(); setStatus('Paused'); updateButton(); return; }
+    try {
+      const config = readConfig();
+      if (Object.keys(defaults).some(key => config[key] !== run.config[key]) || run.iteration >= run.config.iterations) reset(config);
+      comparisonToken++; $('compareBtn').disabled = false; $('compareBtn').textContent = 'Run comparison ↗';
+      busy = true; setStatus('Running', true); updateButton(); step();
+    } catch (error) { notice(error.message); $('seed').reportValidity(); }
+  }
+  function example() {
+    reset(defaults);
+    const start = performance.now(); while (run.step()) { /* compute the example, rather than load fabricated data */ }
+    computeMs = performance.now() - start; setStatus('Example · seed 42'); update();
+  }
+  function switchView(view, focus = false) {
+    activeView = view;
+    document.querySelectorAll('[role="tab"]').forEach(tab => {
+      const selected = tab.dataset.tab === view;
+      tab.classList.toggle('active', selected); tab.setAttribute('aria-selected', selected); tab.tabIndex = selected ? 0 : -1;
+      if (focus && selected) tab.focus();
     });
-  });
-}
-
-// Tab Switching
-function switchTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-  
-  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-  document.getElementById(tabName).classList.add('active');
-  
-  // Refresh charts when switching tabs
-  if (tabName === 'landscape') {
-    renderLandscape();
-  } else if (tabName === 'parameters') {
-    if (radarChart) radarChart.update();
+    document.querySelectorAll('.view').forEach(panel => { panel.hidden = panel.id !== view; });
+    $('viewName').textContent = names[view]; renderView();
   }
-}
-
-// Load Use Case
-function loadUseCase(index) {
-  state.currentUseCase = index;
-  const useCase = useCases[index];
-  
-  state.qubits = useCase.qubits;
-  state.layers = useCase.layers;
-  state.maxIterations = useCase.expectedIterations;
-  
-  document.getElementById('qubitCount').textContent = useCase.qubits;
-  document.getElementById('layerCount').textContent = useCase.layers;
-  document.getElementById('paramCount').textContent = useCase.parameters;
-  document.getElementById('hamiltonianDesc').textContent = useCase.hamiltonianDescription;
-  document.getElementById('maxIterValue').textContent = useCase.expectedIterations;
-  document.getElementById('maxIterations').value = useCase.expectedIterations;
-  
-  document.getElementById('qubitSlider').value = useCase.qubits;
-  document.getElementById('layerSlider').value = useCase.layers;
-  document.getElementById('qubitValue').textContent = useCase.qubits;
-  document.getElementById('layerValue').textContent = useCase.layers;
-  
-  resetOptimization();
-  updateCircuitStats();
-}
-
-// Initialize Charts
-function initializeCharts() {
-  // Cost Chart
-  const costCtx = document.getElementById('costChart').getContext('2d');
-  costChart = new Chart(costCtx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Cost Function',
-        data: [],
-        borderColor: '#06b6d4',
-        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          mode: 'index',
-          intersect: false
+  function sampleLandscape() {
+    if (landscapeData) return landscapeData;
+    const x = Number($('sliceX').value), y = Number($('sliceY').value), size = 32, values = [];
+    const params = [...run.history[0].parameters];
+    for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+      params[x] = -Math.PI + (i + 0.5) / size * VQE.TAU;
+      params[y] = -Math.PI + (j + 0.5) / size * VQE.TAU;
+      values.push(run.objective(params));
+    }
+    landscapeData = { size, values, min: Math.min(...values), max: Math.max(...values) };
+    $('landscapeMin').textContent = `${landscapeData.min.toFixed(3)} · LOW`; $('landscapeMax').textContent = `${landscapeData.max.toFixed(3)} · HIGH`;
+    return landscapeData;
+  }
+  function renderView() {
+    if (!run) return;
+    const colors = VQECharts.palette();
+    if (activeView === 'overview') {
+      VQECharts.line($('energyChart'), [{ values: run.history.map(r => r.energy) }, { values: run.history.map(r => r.best) }], { reference: run.problem.reference, maxX: run.config.iterations });
+      const state = VQE.simulate(run.parameters, run.config.qubits, run.config.layers);
+      VQECharts.probabilities($('probabilityChart'), Array.from(state, x => x * x), run.config.qubits);
+      $('basisCount').textContent = state.length > 8 ? `Top 8 / ${state.length}` : `${state.length} states`;
+      VQECharts.landscape($('miniLandscape'), sampleLandscape(), run.history, Number($('sliceX').value), Number($('sliceY').value));
+    } else if (activeView === 'landscape') {
+      VQECharts.landscape($('landscapeChart'), sampleLandscape(), run.history, Number($('sliceX').value), Number($('sliceY').value), true);
+    } else if (activeView === 'parameters') {
+      const series = run.parameters.map((_, i) => ({ values: run.history.map(row => row.parameters[i]), color: [colors.accent, colors.violet, colors.green, '#7eacbf', '#d6b783', '#cf87b7'][i % 6] }));
+      VQECharts.line($('parameterChart'), series, { maxX: run.config.iterations, label: 'ANGLE (rad)', fill: false });
+      const derivatives = VQE.gradient(run.parameters, run.objective), scale = Math.max(...derivatives.map(Math.abs), 1e-12);
+      const cells = run.parameters.map((p, i) => {
+        const cell = document.createElement('div'); cell.className = 'parameter-cell';
+        cell.innerHTML = `<header><span>θ${i}</span><span>L${Math.floor(i / run.config.qubits) + 1} · q${i % run.config.qubits}</span></header><strong>${p.toFixed(4)} <span class="unit">rad</span></strong><small>∂E/∂θ = ${derivatives[i].toFixed(5)}</small><div class="sensitivity-bar"><i style="width:${Math.abs(derivatives[i]) / scale * 100}%"></i></div>`;
+        return cell;
+      }); $('parameterGrid').replaceChildren(...cells);
+    } else if (activeView === 'experiments') {
+      VQECharts.line($('comparisonChart'), comparison.map((r, i) => ({ values: r.history.map(row => row.best), color: [colors.accent, colors.violet, colors.green][i] })), { reference: comparison.length ? comparison[0].problem.reference : undefined, maxX: run.config.iterations });
+    }
+  }
+  function renderCircuit() {
+    const { qubits, layers } = run.config, colors = VQECharts.palette();
+    const layerWidth = 70 + (qubits - 1) * 30, width = 110 + layers * layerWidth, height = 45 + qubits * 52;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"><g font-family="monospace" font-size="10">`;
+    for (let q = 0; q < qubits; q++) {
+      const y = 43 + q * 52;
+      svg += `<text x="0" y="${y + 4}" fill="${colors.text}">q${q} |0⟩</text><line x1="58" y1="${y}" x2="${width - 15}" y2="${y}" stroke="${colors.grid}"/>`;
+    }
+    for (let l = 0; l < layers; l++) {
+      const x = 77 + l * layerWidth;
+      svg += `<text x="${x}" y="13" fill="${colors.faint}">LAYER ${l + 1}</text>`;
+      for (let q = 0; q < qubits; q++) {
+        const y = 43 + q * 52;
+        svg += `<rect x="${x}" y="${y - 15}" width="44" height="30" rx="3" fill="${colors.panel}" stroke="${colors.violet}"/><text x="${x + 22}" y="${y + 4}" text-anchor="middle" fill="${colors.violet}">RY θ${l * qubits + q}</text>`;
+      }
+      for (let q = 0; q < qubits - 1; q++) {
+        const cx = x + 62 + q * 30, y1 = 43 + q * 52, y2 = y1 + 52;
+        svg += `<line x1="${cx}" y1="${y1}" x2="${cx}" y2="${y2}" stroke="${colors.accent}"/><circle cx="${cx}" cy="${y1}" r="3" fill="${colors.accent}"/><circle cx="${cx}" cy="${y2}" r="8" fill="${colors.panel}" stroke="${colors.accent}"/><path d="M${cx - 8} ${y2}h16M${cx} ${y2 - 8}v16" stroke="${colors.accent}"/>`;
+      }
+    }
+    $('circuitDiagram').innerHTML = svg + '</g></svg>';
+    $('circuitDiagram').setAttribute('aria-label', `${qubits} qubits; ${layers} layers, each with ${qubits} RY gates followed by ${qubits - 1} sequential controlled-X gates.`);
+    const stats = VQE.circuitStats(qubits, layers);
+    const metrics = [['TOTAL GATES', stats.totalGates, `${stats.rotations} RY + ${stats.entanglers} CX`], ['CIRCUIT DEPTH', stats.depth, 'Parallel RY; sequential CX'], ['PARAMETERS', stats.parameters, 'One angle per RY gate'], ['STATE DIMENSION', 2 ** qubits, 'Real amplitudes'], ['STATE MEMORY', `${stats.stateBytes} B`, 'Float64 amplitude buffer only'], ['EXACT REFERENCE', run.problem.reference.toFixed(4), run.problem.unit]];
+    $('circuitMetrics').replaceChildren(...metrics.map(([name, value, caption]) => {
+      const node = document.createElement('div'); node.className = 'circuit-metric';
+      node.innerHTML = `<span>${name}</span><strong>${value}</strong><small>${caption}</small>`; return node;
+    }));
+    const text = run.problem.terms.length ? run.problem.terms.map(([word, coefficient]) => `${coefficient >= 0 ? '+' : '−'} ${Math.abs(coefficient).toFixed(6)} ${word}`).join(' ') : run.config.problem === 'maxcut' ? 'H = −Σ(i,j)∈edges (I − ZiZj) / 2 · unweighted ring' : 'C(x) = Σi (0.06 + 0.01i − return[i])xi + 0.025 Σi<j xixj + 0.5(Σi xi − 2)²';
+    $('hamiltonian').textContent = text;
+    if (run.config.problem === 'portfolio') {
+      const detail = document.createElement('div');
+      detail.textContent = 'Returns: [0.12, 0.18, 0.10, 0.15, 0.09, 0.16], truncated to n assets.';
+      $('hamiltonian').append(detail);
+    }
+    const ref = document.createElement('span'); ref.className = 'reference'; ref.textContent = `E₀ = ${run.problem.reference.toFixed(9)} ${run.problem.unit}`; $('hamiltonian').append(ref);
+  }
+  async function compare() {
+    if (busy) { cancelWork(); setStatus('Paused'); updateButton(); }
+    const token = ++comparisonToken;
+    comparison = VQE.OPTIMIZERS.map(optimizer => VQE.createRun({ ...run.config, optimizer }));
+    $('compareBtn').disabled = true; $('compareBtn').textContent = 'Comparing…';
+    while (comparison[0].iteration < run.config.iterations && token === comparisonToken) {
+      // Yield regularly so reset, configuration changes, and navigation remain responsive.
+      const start = performance.now();
+      do { comparison.forEach(r => r.step()); } while (performance.now() - start < 12 && comparison[0].iteration < run.config.iterations);
+      if (activeView === 'experiments') renderView();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    if (token !== comparisonToken) return;
+    const colors = VQECharts.palette();
+    $('comparisonRows').replaceChildren(...comparison.map((r, i) => {
+      const tr = document.createElement('tr');
+      [r.config.optimizer, r.best.toFixed(6), Math.max(0, r.best - r.problem.reference).toExponential(3), r.evaluations, r.iteration].forEach((value, col) => {
+        const td = document.createElement('td'); td.textContent = value;
+        if (col === 0) td.style.color = [colors.accent, colors.violet, colors.green][i]; tr.append(td);
+      }); return tr;
+    }));
+    $('compareBtn').disabled = false; $('compareBtn').textContent = 'Run comparison ↗'; notice('Comparison complete. All optimizers used the same initial angles.');
+  }
+  function download(content, extension, mime) {
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
+    const link = document.createElement('a'); link.href = url; link.download = `vqe-${run.config.problem}-seed${run.config.seed}.${extension}`;
+    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function exportJSON() { download(JSON.stringify(run.snapshot(), null, 2), 'json', 'application/json'); }
+  function exportCSV() {
+    const header = ['iteration', 'energy', 'best_energy', 'exact_gap', ...run.parameters.map((_, i) => `theta_${i}`)];
+    const rows = run.history.map(r => [r.iteration, r.energy, r.best, r.best - run.problem.reference, ...r.parameters].join(','));
+    download([header.join(','), ...rows].join('\n') + '\n', 'csv', 'text/csv');
+  }
+  async function replay(config, count, label) {
+    VQE.validateConfig(config);
+    if (!Number.isInteger(count) || count < 0 || count > config.iterations) throw new Error('Invalid replay length.');
+    reset(config, 'Replaying…');
+    const token = comparisonToken;
+    $('runBtn').disabled = true;
+    $('mobileRunBtn').disabled = true;
+    try {
+      while (run.iteration < count && token === comparisonToken) {
+        const start = performance.now();
+        do { const t = performance.now(); run.step(); computeMs += performance.now() - t; } while (performance.now() - start < 12 && run.iteration < count);
+        update(); await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      if (token === comparisonToken) { setStatus(label); update(); }
+    } finally { $('runBtn').disabled = false; $('mobileRunBtn').disabled = false; }
+  }
+  function persistNotebook() {
+    try { localStorage.setItem('vqe-notebook-v1', JSON.stringify(saved)); return true; }
+    catch { notice('Browser storage is unavailable. This notebook is kept in memory; export JSON to keep your run.'); return false; }
+  }
+  function renderNotebook() {
+    if (!saved.length) { $('savedRuns').innerHTML = '<div class="empty-notebook">Your next discovery belongs here.<br>Save a run to compare or replay it later.</div>'; return; }
+    $('savedRuns').replaceChildren(...saved.map((entry, i) => {
+      const row = document.createElement('div'); row.className = 'saved-row';
+      const info = document.createElement('div'); info.className = 'saved-info';
+      const title = document.createElement('strong'); title.textContent = `${VQE.PROBLEMS.find(p => p.id === entry.config.problem).short} · ${entry.config.optimizer}`;
+      const detail = document.createElement('small'); detail.textContent = `${entry.config.qubits}q / ${entry.config.layers}L · seed ${entry.config.seed} · ${entry.iteration} iterations`;
+      info.append(title, detail);
+      const energy = document.createElement('span'); energy.className = 'saved-energy'; energy.textContent = entry.best.toFixed(5);
+      const restore = document.createElement('button'); restore.className = 'button small'; restore.textContent = 'Replay';
+      restore.addEventListener('click', () => { switchView('overview'); replay(entry.config, entry.iteration, 'Replayed run').catch(e => notice(e.message)); });
+      const remove = document.createElement('button'); remove.className = 'icon-button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove saved run ${i + 1}`);
+      remove.addEventListener('click', () => { saved.splice(i, 1); persistNotebook(); renderNotebook(); });
+      row.append(info, energy, restore, remove); return row;
+    }));
+  }
+  function init() {
+    try {
+      document.documentElement.dataset.theme = localStorage.getItem('vqe-theme') === 'light' ? 'light' : 'dark';
+      const data = JSON.parse(localStorage.getItem('vqe-notebook-v1') || '[]');
+      if (Array.isArray(data)) saved = data.slice(0, 8).filter(entry => {
+        try { VQE.validateConfig(entry.config); return Number.isFinite(entry.best) && Number.isInteger(entry.iteration) && entry.iteration >= 0 && entry.iteration <= entry.config.iterations; } catch { return false; }
+      });
+    } catch { /* Storage is optional; the simulator also works from file://. */ }
+    $('themeBtn').setAttribute('aria-label', `Switch to ${document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'} theme`);
+    example(); renderNotebook();
+    configControls.forEach(id => $(id).addEventListener(id === 'seed' ? 'change' : 'input', () => {
+      try {
+        if (id === 'problemSelect') {
+          const meta = VQE.PROBLEMS.find(p => p.id === $('problemSelect').value);
+          $('qubits').value = meta.qubits; $('layers').value = meta.layers;
         }
-      },
-      scales: {
-        x: {
-          title: { display: true, text: 'Iteration', color: '#777' },
-          grid: { color: 'rgba(0,0,0,0.05)' }
-        },
-        y: {
-          title: { display: true, text: 'Cost', color: '#777' },
-          grid: { color: 'rgba(0,0,0,0.05)' }
-        }
-      },
-      animation: { duration: 0 }
-    }
-  });
-  
-  // Gate Chart
-  const gateCtx = document.getElementById('gateChart').getContext('2d');
-  gateChart = new Chart(gateCtx, {
-    type: 'bar',
-    data: {
-      labels: ['RY Gates', 'RZ Gates', 'CNOT Gates', 'Hadamard'],
-      datasets: [{
-        label: 'Gate Count',
-        data: [12, 6, 8, 2],
-        backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C', '#5D878F']
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, title: { display: true, text: 'Count' } }
-      }
-    }
-  });
-  
-  // Radar Chart
-  const radarCtx = document.getElementById('radarChart').getContext('2d');
-  radarChart = new Chart(radarCtx, {
-    type: 'radar',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Parameters',
-        data: [],
-        borderColor: '#7c3aed',
-        backgroundColor: 'rgba(124, 58, 237, 0.2)',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        r: {
-          beginAtZero: true,
-          max: Math.PI * 2
-        }
-      }
-    }
-  });
-  
-  // Noise Chart
-  const noiseCtx = document.getElementById('noiseChart').getContext('2d');
-  new Chart(noiseCtx, {
-    type: 'line',
-    data: {
-      labels: ['0%', '1%', '2%', '3%', '4%', '5%'],
-      datasets: [{
-        label: 'Cost with Noise',
-        data: [0.012, 0.018, 0.031, 0.052, 0.089, 0.143],
-        borderColor: '#EF4444',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: true }
-      },
-      scales: {
-        x: { title: { display: true, text: 'Noise Level' } },
-        y: { title: { display: true, text: 'Final Error' }, beginAtZero: true }
-      }
-    }
-  });
-  
-  // Parameter Distribution Chart
-  const paramDistCtx = document.getElementById('paramDistChart').getContext('2d');
-  paramDistChart = new Chart(paramDistCtx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Layer 1', 'Layer 2', 'Layer 3'],
-      datasets: [{
-        data: [4, 4, 4],
-        backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C']
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'bottom' }
-      }
-    }
-  });
-  
-  // Landscape Canvas
-  landscapeCtx = document.getElementById('landscapeCanvas').getContext('2d');
-}
-
-// Optimization Functions
-function startOptimization() {
-  if (state.isRunning) return;
-  state.isRunning = true;
-  runOptimizationStep();
-}
-
-function pauseOptimization() {
-  state.isRunning = false;
-  if (animationFrame) {
-    cancelAnimationFrame(animationFrame);
-  }
-}
-
-function resetOptimization() {
-  pauseOptimization();
-  state.currentIteration = 0;
-  state.costHistory = [];
-  state.parameterHistory = [];
-  state.trajectory = [];
-  
-  const useCase = useCases[state.currentUseCase];
-  state.currentCost = Math.abs(useCase.expectedFinalCost) * 5;
-  state.bestCost = state.currentCost;
-  
-  // Initialize random parameters
-  state.parameters = Array(useCase.parameters).fill(0).map(() => Math.random() * 2 * Math.PI);
-  
-  updateDashboard();
-  
-  costChart.data.labels = [];
-  costChart.data.datasets[0].data = [];
-  costChart.update();
-  
-  updateRadarChart();
-  renderLandscape();
-}
-
-function runOptimizationStep() {
-  if (!state.isRunning || state.currentIteration >= state.maxIterations) {
-    state.isRunning = false;
-    return;
-  }
-  
-  const useCase = useCases[state.currentUseCase];
-  const targetCost = useCase.expectedFinalCost;
-  
-  // Simulate convergence with noise
-  const optimizer = optimizers[state.currentOptimizer];
-  let convergenceRate = 0.90; // Default for COBYLA/GD-like behavior
-  
-  if (optimizer.name === 'Adam') {
-    convergenceRate = 0.96; // Adam is typically faster
-  } else if (optimizer.name === 'COBYLA') {
-    convergenceRate = 0.90;
-  } else if (optimizer.name === 'Gradient Descent') {
-    convergenceRate = 0.92;
-  }
-  
-  let noiseFactor = 0.1;
-  if (optimizer.name === 'Adam') {
-    noiseFactor = 0.05; // Adam is typically more stable
-  }
-  const noise = (Math.random() - 0.5) * noiseFactor * Math.abs(targetCost);
-  const idealCost = state.currentCost + (targetCost - state.currentCost) * (1 - Math.pow(convergenceRate, state.currentIteration + 1));
-  state.currentCost = idealCost + noise;
-  
-  if (state.currentCost < state.bestCost) {
-    state.bestCost = state.currentCost;
-  }
-  
-  state.costHistory.push(state.currentCost);
-  
-  // Update parameters
-  state.parameters = state.parameters.map((p) => {
-    const gradient = (Math.random() - 0.5) * state.learningRate;
-    return (p + gradient) % (2 * Math.PI);
-  });
-  state.parameterHistory.push([...state.parameters]);
-  
-  // Add to trajectory
-  if (state.parameters.length >= 2) {
-    state.trajectory.push([state.parameters[0], state.parameters[1]]);
-  }
-  
-  state.currentIteration++;
-  
-  updateDashboard();
-  updateCostChart();
-  updateRadarChart();
-  
-  if (state.currentIteration % 5 === 0) {
-    renderLandscape();
-  }
-  
-  animationFrame = requestAnimationFrame(() => {
-    setTimeout(runOptimizationStep, 50);
-  });
-}
-
-// Update Functions
-function updateDashboard() {
-  document.getElementById('currentCost').textContent = state.currentCost.toFixed(3);
-  document.getElementById('bestCost').textContent = state.bestCost.toFixed(3);
-  document.getElementById('iteration').textContent = state.currentIteration;
-  
-  const convergenceRate = state.currentIteration > 0 
-    ? Math.min(100, (1 - Math.abs(state.bestCost - useCases[state.currentUseCase].expectedFinalCost) / Math.abs(useCases[state.currentUseCase].expectedFinalCost)) * 100)
-    : 0;
-  document.getElementById('convergenceRate').textContent = convergenceRate.toFixed(0) + '%';
-}
-
-function updateCostChart() {
-  costChart.data.labels = Array(state.costHistory.length).fill(0).map((_, i) => i);
-  costChart.data.datasets[0].data = state.costHistory;
-  costChart.update('none');
-}
-
-function updateRadarChart() {
-  if (state.parameters.length === 0) return;
-  
-  radarChart.data.labels = state.parameters.map((_, i) => `θ${i}`);
-  radarChart.data.datasets[0].data = state.parameters;
-  radarChart.update();
-}
-
-function updateCircuitStats() {
-  const ryGates = state.qubits * state.layers;
-  const rzGates = Math.floor(state.qubits * state.layers / 2);
-  const cnotGates = (state.qubits - 1) * state.layers;
-  const hadamard = state.qubits;
-  const totalGates = ryGates + rzGates + cnotGates + hadamard;
-  
-  document.getElementById('totalGates').textContent = totalGates;
-  document.getElementById('circuitDepth').textContent = state.layers * 4 + 2;
-  document.getElementById('totalParams').textContent = ryGates + rzGates;
-  document.getElementById('execTime').textContent = (totalGates * 0.1).toFixed(1) + ' ms';
-  document.getElementById('memoryReq').textContent = Math.pow(2, state.qubits) * 16 + ' KB';
-  
-  gateChart.data.datasets[0].data = [ryGates, rzGates, cnotGates, hadamard];
-  gateChart.update();
-  
-  // Update parameter distribution
-  const labels = [];
-  const data = [];
-  for (let i = 0; i < state.layers; i++) {
-    labels.push(`Layer ${i + 1}`);
-    data.push(Math.floor((ryGates + rzGates) / state.layers));
-  }
-  paramDistChart.data.labels = labels;
-  paramDistChart.data.datasets[0].data = data;
-  paramDistChart.update();
-}
-
-// Landscape Rendering
-function renderLandscape() {
-  const canvas = document.getElementById('landscapeCanvas');
-  const ctx = landscapeCtx;
-  const width = canvas.width = canvas.offsetWidth;
-  const height = canvas.height = canvas.offsetHeight;
-  
-  // Draw heatmap
-  const resolution = 50;
-  const cellWidth = width / resolution;
-  const cellHeight = height / resolution;
-  
-  for (let i = 0; i < resolution; i++) {
-    for (let j = 0; j < resolution; j++) {
-      const x = i / resolution * 2 * Math.PI;
-      const y = j / resolution * 2 * Math.PI;
-      
-      // Simulate loss landscape
-      const cost = simulateCost(x, y);
-      const useCase = useCases[state.currentUseCase];
-      const maxCost = Math.abs(useCase.expectedFinalCost) * 5;
-      const minCost = useCase.expectedFinalCost;
-      
-      const normalized = (cost - minCost) / (maxCost - minCost);
-      const hue = (1 - normalized) * 240; // Blue to red
-      
-      ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
-      ctx.fillRect(i * cellWidth, j * cellHeight, cellWidth, cellHeight);
-    }
-  }
-  
-  // Draw trajectory
-  if (state.trajectory.length > 1) {
-    ctx.strokeStyle = '#10B981';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    
-    state.trajectory.forEach((point, idx) => {
-      const x = (point[0] / (2 * Math.PI)) * width;
-      const y = (point[1] / (2 * Math.PI)) * height;
-      
-      if (idx === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
+        reset(readConfig());
+      } catch (error) { cancelWork(); setStatus('Invalid setup'); updateButton(); notice(error.message); }
+    }));
+    $('runBtn').addEventListener('click', toggleRun);
+    $('mobileRunBtn').addEventListener('click', toggleRun);
+    $('mobileSetupBtn').addEventListener('click', () => $('setup').scrollIntoView({ block: 'start' }));
+    $('resetBtn').addEventListener('click', () => { try { reset(); } catch (e) { notice(e.message); } });
+    $('exampleBtn').addEventListener('click', example);
+    document.querySelectorAll('[data-tab]').forEach(tab => {
+      tab.addEventListener('click', () => switchView(tab.dataset.tab));
+      tab.addEventListener('keydown', e => {
+        const tabs = [...document.querySelectorAll('[data-tab]')], current = tabs.indexOf(tab);
+        let next;
+        if (['ArrowDown', 'ArrowRight'].includes(e.key)) next = (current + 1) % tabs.length;
+        if (['ArrowUp', 'ArrowLeft'].includes(e.key)) next = (current - 1 + tabs.length) % tabs.length;
+        if (e.key === 'Home') next = 0; if (e.key === 'End') next = tabs.length - 1;
+        if (next !== undefined) { e.preventDefault(); switchView(tabs[next].dataset.tab, true); }
+      });
     });
-    
-    ctx.stroke();
-    
-    // Draw current position
-    const last = state.trajectory[state.trajectory.length - 1];
-    const lastX = (last[0] / (2 * Math.PI)) * width;
-    const lastY = (last[1] / (2 * Math.PI)) * height;
-    
-    ctx.fillStyle = '#10B981';
-    ctx.beginPath();
-    ctx.arc(lastX, lastY, 5, 0, 2 * Math.PI);
-    ctx.fill();
-  }
-}
-
-function simulateCost(theta1, theta2) {
-  const useCase = useCases[state.currentUseCase];
-  const target = useCase.expectedFinalCost;
-  
-  // Create a landscape with local minima
-  const cost1 = Math.sin(theta1) * Math.cos(theta2);
-  const cost2 = Math.sin(theta1 * 2) * Math.sin(theta2 * 2) * 0.3;
-  const cost3 = Math.cos(theta1 + theta2) * 0.2;
-  
-  return target + (cost1 + cost2 + cost3) * Math.abs(target) * 2;
-}
-
-// Sensitivity Heatmap
-function renderSensitivityHeatmap() {
-  const grid = document.getElementById('sensitivityGrid');
-  grid.innerHTML = '';
-  
-  const paramCount = 12;
-  const sensitivity = Array(paramCount).fill(0).map(() => Math.random());
-  
-  sensitivity.forEach((value, idx) => {
-    const cell = document.createElement('div');
-    cell.className = 'sensitivity-cell';
-    const intensity = Math.floor(value * 255);
-    cell.style.backgroundColor = `rgb(${255 - intensity}, ${100}, ${intensity})`;
-    cell.textContent = `θ${idx}`;
-    grid.appendChild(cell);
-  });
-}
-
-// Parameter History
-function renderParameterHistory() {
-  const container = document.getElementById('paramHistoryGrid');
-  container.innerHTML = '';
-  
-  const paramCount = useCases[state.currentUseCase].parameters;
-  
-  for (let i = 0; i < Math.min(paramCount, 12); i++) {
-    const chartDiv = document.createElement('div');
-    chartDiv.className = 'param-history-chart';
-    
-    const canvas = document.createElement('canvas');
-    chartDiv.appendChild(canvas);
-    container.appendChild(chartDiv);
-    
-    const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: `θ${i}`,
-          data: [],
-          borderColor: '#7c3aed',
-          borderWidth: 1,
-          pointRadius: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: true, position: 'top' },
-          title: { display: true, text: `Parameter θ${i}` }
-        },
-        scales: {
-          x: { display: false },
-          y: { display: true, min: 0, max: 2 * Math.PI }
-        }
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.open, true)));
+    for (const id of ['sliceX', 'sliceY']) $(id).addEventListener('change', () => {
+      if ($('sliceX').value === $('sliceY').value) {
+        const other = id === 'sliceX' ? 'sliceY' : 'sliceX';
+        $(other).value = (Number($(id).value) + 1) % run.parameters.length;
       }
+      landscapeData = null; renderView();
     });
+    $('themeBtn').addEventListener('click', () => {
+      const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = theme;
+      $('themeBtn').setAttribute('aria-label', `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`);
+      try { localStorage.setItem('vqe-theme', theme); } catch { /* Optional preference. */ }
+      renderView(); renderCircuit();
+    });
+    $('aboutBtn').addEventListener('click', () => $('aboutDialog').showModal());
+    $('footerAboutBtn').addEventListener('click', () => $('aboutDialog').showModal());
+    document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => $(btn.dataset.close).close()));
+    $('showDataBtn').addEventListener('click', () => {
+      $('traceRows').replaceChildren(...run.history.map(row => {
+        const tr = document.createElement('tr');
+        [row.iteration, row.energy.toFixed(8), row.best.toFixed(8), (row.best - run.problem.reference).toExponential(4)].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.append(td); }); return tr;
+      })); $('dataDialog').showModal();
+    });
+    $('exportJsonBtn').addEventListener('click', exportJSON); $('exportCsvBtn').addEventListener('click', exportCSV);
+    $('importBtn').addEventListener('click', () => $('importFile').click());
+    $('importFile').addEventListener('change', async e => {
+      const file = e.target.files[0]; if (!file) return;
+      try {
+        if (file.size > 1000000) throw new Error('Run files must be smaller than 1 MB.');
+        const data = JSON.parse(await file.text());
+        if (data.schemaVersion !== 1 || data.engine !== 'real-statevector-ry-cnot-v1' || !Array.isArray(data.history)) throw new Error('Unsupported run format. Export JSON from this workbench.');
+        VQE.validateConfig(data.config);
+        await replay(data.config, data.history.length - 1, 'Imported · recomputed');
+        notice('Imported setup replayed. Energies were recomputed locally.');
+      } catch (error) { notice(error instanceof SyntaxError ? 'Invalid JSON file.' : error.message); }
+      finally { e.target.value = ''; }
+    });
+    $('compareBtn').addEventListener('click', compare);
+    $('saveRunBtn').addEventListener('click', () => {
+      saved.unshift({ config: { ...run.config }, iteration: run.iteration, best: run.best }); saved = saved.slice(0, 8);
+      const persisted = persistNotebook(); renderNotebook();
+      if (persisted) notice('Run saved in your browser notebook.');
+    });
+    $('shareBtn').addEventListener('click', async () => {
+      const url = new URL(location.href); url.search = '';
+      Object.entries(run.config).forEach(([key, value]) => url.searchParams.set(key, value)); url.searchParams.set('step', run.iteration);
+      try { await navigator.clipboard.writeText(url.href); notice('Reproducible setup link copied.'); }
+      catch { history.replaceState(null, '', url.href); notice('Setup encoded in the address bar. Copy its URL to share.'); }
+    });
+    $('energyChart').addEventListener('pointermove', e => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const index = Math.round((e.clientX - rect.left - 60) / (rect.width - 78) * run.config.iterations);
+      if (index < 0 || index >= run.history.length) { $('energyTooltip').hidden = true; return; }
+      const row = run.history[index]; $('energyTooltip').textContent = `Iteration ${index} · ${row.energy.toFixed(6)} ${run.problem.unit}`; $('energyTooltip').hidden = false;
+    });
+    $('energyChart').addEventListener('pointerleave', () => { $('energyTooltip').hidden = true; });
+    const resize = () => { document.querySelector('[role="tablist"]').setAttribute('aria-orientation', matchMedia('(max-width:540px)').matches ? 'horizontal' : 'vertical'); cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(renderView); };
+    new ResizeObserver(resize).observe(document.querySelector('.analysis-area'));
+    window.addEventListener('resize', resize);
+    document.addEventListener('keydown', e => {
+      if (e.target.closest('input,select,button,a,dialog') || document.querySelector('dialog[open]') || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.code === 'Space') { e.preventDefault(); toggleRun(); }
+      if (e.key.toLowerCase() === 'r') { try { reset(); } catch (error) { notice(error.message); } }
+    });
+    const query = new URLSearchParams(location.search);
+    if (query.has('problem')) {
+      try {
+        const config = { ...defaults };
+        for (const key of Object.keys(config)) if (query.has(key)) config[key] = typeof config[key] === 'number' ? Number(query.get(key)) : query.get(key);
+        const count = Number(query.get('step') || 0);
+        VQE.validateConfig(config);
+        replay(config, count, 'Shared setup').catch(e => notice(e.message));
+      } catch (error) { notice(`Invalid shared setup: ${error.message}`); }
+    }
   }
-}
-
-// Initialize on load
-document.addEventListener('DOMContentLoaded', init);
+  init();
+})();
