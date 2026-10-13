@@ -1,4 +1,4 @@
-/* global VQE, VQECharts */
+/* global VQE, VQECharts, VQEEvolution */
 'use strict';
 
 (() => {
@@ -8,7 +8,30 @@
   let run, timer = null, busy = false, activeView = 'overview', computeMs = 0, landscapeData = null;
   let comparison = [], comparisonToken = 0, noticeTimer, resizeFrame;
   let saved = [];
+  let evolution = null, learned = {}, learningStorageAvailable = true;
   const configControls = ['problemSelect', 'optimizerSelect', 'learningRate', 'maxIterations', 'qubits', 'layers', 'seed'];
+
+  const mode = () => $('runMode').value;
+  function syncMode() {
+    const live = mode() === 'live', fixed = mode() === 'fixed';
+    $('learningPanel').hidden = !live; $('seed').readOnly = !fixed;
+    $('seedTag').textContent = fixed ? 'REPLAYABLE' : 'FRESH SEED';
+    $('seedHelp').textContent = fixed ? 'Fixed seed and initial angles reproduce the same trajectory.' : 'A fresh seed is generated for each new run or learning cycle.';
+    $('modeHelp').textContent = live ? 'Retain better parameters, adapt exploration, and keep learning until paused.' : fixed ? 'One repeatable experiment with a fixed seed.' : 'One independent run with new random initial angles each time.';
+  }
+  function memoryFor(config) {
+    const key = VQEEvolution.key(config);
+    if (!learned[key]) return null;
+    try { return VQEEvolution.validateMemory(learned[key], config); }
+    catch { delete learned[key]; return null; }
+  }
+  function persistLearning() {
+    if (evolution) learned[VQEEvolution.key(run.config)] = evolution.memory();
+    const keys = Object.keys(learned); while (keys.length > 24) delete learned[keys.shift()];
+    try { localStorage.setItem('vqe-learning-v1', JSON.stringify(learned)); }
+    catch { learningStorageAvailable = false; }
+    $('learningExplanation').textContent = learningStorageAvailable ? 'Better parameters survive across cycles and page reloads on this device. Mutation radius adapts to progress; global restarts keep exploring.' : 'Better parameters survive in this tab. Browser storage is unavailable; export JSON to keep your learning checkpoint.';
+  }
 
   function readConfig() {
     return VQE.validateConfig({ problem: $('problemSelect').value, optimizer: $('optimizerSelect').value, learningRate: Number($('learningRate').value), iterations: Number($('maxIterations').value), qubits: Number($('qubits').value), layers: Number($('layers').value), seed: $('seed').value.trim() === '' ? NaN : Number($('seed').value) });
@@ -28,21 +51,26 @@
     $('runStatus').textContent = label; $('runBadge').classList.toggle('running', running);
   }
   function cancelWork() {
+    if (evolution) persistLearning();
     clearTimeout(timer); timer = null; busy = false;
     comparisonToken++; $('compareBtn').disabled = false;
     $('compareBtn').textContent = 'Run comparison ↗';
   }
   function updateButton() {
-    $('runBtn').innerHTML = busy ? '<span aria-hidden="true">Ⅱ</span> Pause experiment' : run.iteration >= run.config.iterations ? '<span aria-hidden="true">↺</span> Run again' : run.iteration ? '<span aria-hidden="true">▶</span> Resume experiment' : '<span aria-hidden="true">▶</span> Run experiment';
+    $('runBtn').innerHTML = busy ? '<span aria-hidden="true">Ⅱ</span> Pause experiment' : evolution ? '<span aria-hidden="true">▶</span> Continue learning' : run.iteration >= run.config.iterations ? '<span aria-hidden="true">↺</span> Run again' : run.iteration ? '<span aria-hidden="true">▶</span> Resume experiment' : '<span aria-hidden="true">▶</span> Run experiment';
     $('mobileRunBtn').textContent = $('runBtn').textContent;
   }
-  function reset(config = readConfig(), status = 'Ready') {
-    cancelWork(); writeConfig(config); run = VQE.createRun(config); computeMs = 0;
+  function reset(config = readConfig(), status = 'Ready', options = {}) {
+    cancelWork();
+    if (mode() !== 'fixed') config = { ...config, seed: VQEEvolution.randomSeed() };
+    evolution = mode() === 'live' ? VQEEvolution.createEvolution(config, { memory: memoryFor(config), globalRestart: options.globalRestart }) : null;
+    run = evolution ? evolution.run : VQE.createRun(config, options);
+    writeConfig(run.config); syncMode(); computeMs = 0;
     comparison = []; $('comparisonRows').innerHTML = '<tr><td colspan="5" class="empty-cell">Run a comparison to collect actual results.</td></tr>';
     landscapeData = null;
-    const options = run.parameters.map((_, i) => new Option(`θ${i} · layer ${Math.floor(i / config.qubits) + 1}`, i));
-    $('sliceX').replaceChildren(...options);
-    $('sliceY').replaceChildren(...options.map(option => option.cloneNode(true)));
+    const sliceOptions = run.parameters.map((_, i) => new Option(`θ${i} · layer ${Math.floor(i / config.qubits) + 1}`, i));
+    $('sliceX').replaceChildren(...sliceOptions);
+    $('sliceY').replaceChildren(...sliceOptions.map(option => option.cloneNode(true)));
     $('sliceX').value = '0'; $('sliceY').value = '1';
     $('problemCategory').textContent = run.problem.category;
     $('problemNote').textContent = run.problem.description;
@@ -53,35 +81,51 @@
   }
   function update() {
     const current = run.history.at(-1).energy;
-    $('currentEnergy').textContent = current.toFixed(5); $('bestEnergy').textContent = run.best.toFixed(5);
-    const gap = Math.max(0, run.best - run.problem.reference);
+    const best = evolution ? evolution.best : run.best;
+    $('currentEnergy').textContent = current.toFixed(5); $('bestEnergy').textContent = best.toFixed(5);
+    $('bestCaption').textContent = evolution ? 'Learned best · retained across cycles' : 'Lowest evaluated iterate';
+    const gap = Math.max(0, best - run.problem.reference);
     $('energyGap').textContent = gap < 0.001 ? gap.toExponential(2) : gap.toFixed(5);
     $('referenceLabel').textContent = `Reference ${run.problem.reference.toFixed(6)} ${run.problem.unit}`;
     $('energyChange').textContent = run.iteration ? `${(current - run.initial).toFixed(5)} from initial state` : 'Initial state · seed ' + run.config.seed;
     $('iteration').textContent = run.iteration; $('iterationBudget').textContent = ` / ${run.config.iterations}`;
     $('progressBar').style.width = `${run.iteration / run.config.iterations * 100}%`;
-    $('evaluationCount').textContent = `${run.evaluations.toLocaleString()} objective evaluations`;
+    $('evaluationCount').textContent = `${(evolution ? evolution.evaluations : run.evaluations).toLocaleString()} objective evaluations${evolution ? ' · recent learning trace' : ''}`;
+    if (evolution) {
+      $('learningCycle').textContent = evolution.cycle;
+      $('totalUpdates').textContent = evolution.totalIterations;
+      $('mutationRadius').textContent = evolution.radius.toFixed(3) + ' rad';
+      $('searchStrategy').textContent = evolution.strategy;
+    }
     $('computeTime').textContent = `${computeMs.toFixed(0)} ms`;
     $('energyChart').setAttribute('aria-label', `Energy at iteration ${run.iteration}: ${current.toFixed(6)} ${run.problem.unit}. Best ${run.best.toFixed(6)}. Exact reference ${run.problem.reference.toFixed(6)}.`);
     updateButton(); renderView();
   }
   function step() {
     if (!busy) return;
-    const start = performance.now(); run.step(); computeMs += performance.now() - start;
-    if (run.iteration >= run.config.iterations) { busy = false; timer = null; setStatus('Budget complete'); notice('Experiment complete. Save or export the numerical trace.'); }
+    const previousRun = run, start = performance.now();
+    if (evolution) { evolution.step(); run = evolution.run; } else run.step();
+    computeMs += performance.now() - start;
+    if ($('landscapeMode').value === 'follow' && (run.iteration % 5 === 0 || run !== previousRun)) landscapeData = null;
+    if (evolution) {
+      if (run !== previousRun) { writeConfig(run.config); landscapeData = null; }
+      setStatus(`Learning · cycle ${evolution.cycle}`, true);
+      if (evolution.totalIterations % 25 === 0 || run !== previousRun) persistLearning();
+    } else if (run.iteration >= run.config.iterations) { busy = false; timer = null; setStatus('Budget complete'); notice('Experiment complete. Save or export the numerical trace.'); }
     update();
-    if (busy) timer = setTimeout(step, 35);
+    if (busy) timer = setTimeout(step, 50);
   }
   function toggleRun() {
     if (busy) { cancelWork(); setStatus('Paused'); updateButton(); return; }
     try {
       const config = readConfig();
-      if (Object.keys(defaults).some(key => config[key] !== run.config[key]) || run.iteration >= run.config.iterations) reset(config);
+      if (Object.keys(defaults).some(key => config[key] !== run.config[key]) || (!evolution && run.iteration >= run.config.iterations)) reset(config);
       comparisonToken++; $('compareBtn').disabled = false; $('compareBtn').textContent = 'Run comparison ↗';
       busy = true; setStatus('Running', true); updateButton(); step();
     } catch (error) { notice(error.message); $('seed').reportValidity(); }
   }
   function example() {
+    cancelWork(); $('runMode').value = 'fixed'; $('landscapeMode').value = 'initial';
     reset(defaults);
     const start = performance.now(); while (run.step()) { /* compute the example, rather than load fabricated data */ }
     computeMs = performance.now() - start; setStatus('Example · seed 42'); update();
@@ -99,7 +143,7 @@
   function sampleLandscape() {
     if (landscapeData) return landscapeData;
     const x = Number($('sliceX').value), y = Number($('sliceY').value), size = 32, values = [];
-    const params = [...run.history[0].parameters];
+    const params = $('landscapeMode').value === 'follow' ? run.parameters : [...run.history[0].parameters];
     for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
       params[x] = -Math.PI + (i + 0.5) / size * VQE.TAU;
       params[y] = -Math.PI + (j + 0.5) / size * VQE.TAU;
@@ -113,7 +157,8 @@
     if (!run) return;
     const colors = VQECharts.palette();
     if (activeView === 'overview') {
-      VQECharts.line($('energyChart'), [{ values: run.history.map(r => r.energy) }, { values: run.history.map(r => r.best) }], { reference: run.problem.reference, maxX: run.config.iterations });
+      const trace = evolution ? evolution.trace : run.history;
+      VQECharts.line($('energyChart'), [{ values: trace.map(r => r.energy) }, { values: trace.map(r => r.best) }], { reference: run.problem.reference, maxX: evolution ? Math.max(20, trace.length - 1) : run.config.iterations, xOffset: evolution ? trace[0].iteration : 0 });
       const state = VQE.simulate(run.parameters, run.config.qubits, run.config.layers);
       VQECharts.probabilities($('probabilityChart'), Array.from(state, x => x * x), run.config.qubits);
       $('basisCount').textContent = state.length > 8 ? `Top 8 / ${state.length}` : `${state.length} states`;
@@ -121,8 +166,9 @@
     } else if (activeView === 'landscape') {
       VQECharts.landscape($('landscapeChart'), sampleLandscape(), run.history, Number($('sliceX').value), Number($('sliceY').value), true);
     } else if (activeView === 'parameters') {
-      const series = run.parameters.map((_, i) => ({ values: run.history.map(row => row.parameters[i]), color: [colors.accent, colors.violet, colors.green, '#7eacbf', '#d6b783', '#cf87b7'][i % 6] }));
-      VQECharts.line($('parameterChart'), series, { maxX: run.config.iterations, label: 'ANGLE (rad)', fill: false });
+      const trace = evolution ? evolution.trace : run.history;
+      const series = run.parameters.map((_, i) => ({ values: trace.map(row => row.parameters[i]), color: [colors.accent, colors.violet, colors.green, '#7eacbf', '#d6b783', '#cf87b7'][i % 6] }));
+      VQECharts.line($('parameterChart'), series, { maxX: evolution ? Math.max(20, trace.length - 1) : run.config.iterations, xOffset: evolution ? trace[0].iteration : 0, label: 'ANGLE (rad)', fill: false });
       const derivatives = VQE.gradient(run.parameters, run.objective), scale = Math.max(...derivatives.map(Math.abs), 1e-12);
       const cells = run.parameters.map((p, i) => {
         const cell = document.createElement('div'); cell.className = 'parameter-cell';
@@ -173,7 +219,7 @@
   async function compare() {
     if (busy) { cancelWork(); setStatus('Paused'); updateButton(); }
     const token = ++comparisonToken;
-    comparison = VQE.OPTIMIZERS.map(optimizer => VQE.createRun({ ...run.config, optimizer }));
+    comparison = VQE.OPTIMIZERS.map(optimizer => VQE.createRun({ ...run.config, optimizer }, { initialParameters: run.history[0].parameters }));
     $('compareBtn').disabled = true; $('compareBtn').textContent = 'Comparing…';
     while (comparison[0].iteration < run.config.iterations && token === comparisonToken) {
       // Yield regularly so reset, configuration changes, and navigation remain responsive.
@@ -198,16 +244,22 @@
     const link = document.createElement('a'); link.href = url; link.download = `vqe-${run.config.problem}-seed${run.config.seed}.${extension}`;
     document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  function exportJSON() { download(JSON.stringify(run.snapshot(), null, 2), 'json', 'application/json'); }
+  function exportJSON() {
+    const data = run.snapshot();
+    if (evolution) { data.learningCheckpoint = evolution.memory(); data.evolutionTrace = evolution.trace; }
+    download(JSON.stringify(data, null, evolution ? 0 : 2), 'json', 'application/json');
+  }
   function exportCSV() {
-    const header = ['iteration', 'energy', 'best_energy', 'exact_gap', ...run.parameters.map((_, i) => `theta_${i}`)];
-    const rows = run.history.map(r => [r.iteration, r.energy, r.best, r.best - run.problem.reference, ...r.parameters].join(','));
+    const header = ['iteration', ...(evolution ? ['cycle'] : []), 'energy', 'best_energy', 'exact_gap', ...run.parameters.map((_, i) => `theta_${i}`)];
+    const rows = (evolution ? evolution.trace : run.history).map(r => [r.iteration, ...(evolution ? [r.cycle] : []), r.energy, r.best, r.best - run.problem.reference, ...r.parameters].join(','));
     download([header.join(','), ...rows].join('\n') + '\n', 'csv', 'text/csv');
   }
-  async function replay(config, count, label) {
+  async function replay(config, count, label, initialParameters) {
     VQE.validateConfig(config);
     if (!Number.isInteger(count) || count < 0 || count > config.iterations) throw new Error('Invalid replay length.');
-    reset(config, 'Replaying…');
+    if (initialParameters !== undefined) VQE.validateParameters(initialParameters, config);
+    cancelWork(); $('runMode').value = 'fixed';
+    reset(config, 'Replaying…', { initialParameters });
     const token = comparisonToken;
     $('runBtn').disabled = true;
     $('mobileRunBtn').disabled = true;
@@ -234,29 +286,55 @@
       info.append(title, detail);
       const energy = document.createElement('span'); energy.className = 'saved-energy'; energy.textContent = entry.best.toFixed(5);
       const restore = document.createElement('button'); restore.className = 'button small'; restore.textContent = 'Replay';
-      restore.addEventListener('click', () => { switchView('overview'); replay(entry.config, entry.iteration, 'Replayed run').catch(e => notice(e.message)); });
+      restore.addEventListener('click', () => { switchView('overview'); replay(entry.config, entry.iteration, 'Replayed run', entry.initialParameters).catch(e => notice(e.message)); });
       const remove = document.createElement('button'); remove.className = 'icon-button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove saved run ${i + 1}`);
       remove.addEventListener('click', () => { saved.splice(i, 1); persistNotebook(); renderNotebook(); });
       row.append(info, energy, restore, remove); return row;
     }));
   }
   function init() {
+    const query = new URLSearchParams(location.search);
+    let startupConfig = { ...defaults };
+    if (query.has('problem') || query.get('example') === '1') $('runMode').value = 'fixed';
     try {
       document.documentElement.dataset.theme = localStorage.getItem('vqe-theme') === 'light' ? 'light' : 'dark';
       const data = JSON.parse(localStorage.getItem('vqe-notebook-v1') || '[]');
       if (Array.isArray(data)) saved = data.slice(0, 8).filter(entry => {
-        try { VQE.validateConfig(entry.config); return Number.isFinite(entry.best) && Number.isInteger(entry.iteration) && entry.iteration >= 0 && entry.iteration <= entry.config.iterations; } catch { return false; }
+        try { VQE.validateConfig(entry.config); if (entry.initialParameters !== undefined) VQE.validateParameters(entry.initialParameters, entry.config); return Number.isFinite(entry.best) && Number.isInteger(entry.iteration) && entry.iteration >= 0 && entry.iteration <= entry.config.iterations; } catch { return false; }
       });
+      const rawMemory = localStorage.getItem('vqe-learning-v1') || '{}';
+      if (rawMemory.length < 100000) {
+        const memory = JSON.parse(rawMemory);
+        if (memory && typeof memory === 'object' && !Array.isArray(memory)) learned = memory;
+      }
+      if (!query.has('problem') && query.get('example') !== '1') {
+        const setup = JSON.parse(localStorage.getItem('vqe-last-setup-v1') || 'null');
+        if (setup) {
+          startupConfig = VQE.validateConfig(setup.config);
+          if (['live', 'random', 'fixed'].includes(setup.mode)) $('runMode').value = setup.mode;
+        }
+      }
     } catch { /* Storage is optional; the simulator also works from file://. */ }
     $('themeBtn').setAttribute('aria-label', `Switch to ${document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'} theme`);
-    example(); renderNotebook();
+    reset(startupConfig); renderNotebook();
+    const storeSetup = () => { try { localStorage.setItem('vqe-last-setup-v1', JSON.stringify({ config: run.config, mode: mode() })); } catch { /* Optional settings. */ } };
+    $('runMode').addEventListener('change', () => { try { reset(); storeSetup(); if (mode() === 'live') { busy = true; step(); } } catch (error) { notice(error.message); } });
+    $('newStartBtn').addEventListener('click', () => {
+      try { reset(readConfig(), 'Ready', { globalRestart: true }); busy = true; step(); } catch (error) { notice(error.message); }
+    });
+    $('forgetLearningBtn').addEventListener('click', () => {
+      const config = readConfig(), running = busy;
+      cancelWork(); evolution = null; delete learned[VQEEvolution.key(config)]; persistLearning();
+      reset(config); if (running) { busy = true; step(); }
+    });
     configControls.forEach(id => $(id).addEventListener(id === 'seed' ? 'change' : 'input', () => {
       try {
+        const wasRunning = busy;
         if (id === 'problemSelect') {
           const meta = VQE.PROBLEMS.find(p => p.id === $('problemSelect').value);
           $('qubits').value = meta.qubits; $('layers').value = meta.layers;
         }
-        reset(readConfig());
+        reset(readConfig()); storeSetup(); if (wasRunning && mode() === 'live') { busy = true; step(); }
       } catch (error) { cancelWork(); setStatus('Invalid setup'); updateButton(); notice(error.message); }
     }));
     $('runBtn').addEventListener('click', toggleRun);
@@ -276,7 +354,7 @@
       });
     });
     document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.open, true)));
-    for (const id of ['sliceX', 'sliceY']) $(id).addEventListener('change', () => {
+    for (const id of ['sliceX', 'sliceY', 'landscapeMode']) $(id).addEventListener('change', () => {
       if ($('sliceX').value === $('sliceY').value) {
         const other = id === 'sliceX' ? 'sliceY' : 'sliceX';
         $(other).value = (Number($(id).value) + 1) % run.parameters.length;
@@ -294,7 +372,7 @@
     $('footerAboutBtn').addEventListener('click', () => $('aboutDialog').showModal());
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => $(btn.dataset.close).close()));
     $('showDataBtn').addEventListener('click', () => {
-      $('traceRows').replaceChildren(...run.history.map(row => {
+      $('traceRows').replaceChildren(...(evolution ? evolution.trace : run.history).map(row => {
         const tr = document.createElement('tr');
         [row.iteration, row.energy.toFixed(8), row.best.toFixed(8), (row.best - run.problem.reference).toExponential(4)].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.append(td); }); return tr;
       })); $('dataDialog').showModal();
@@ -308,28 +386,32 @@
         const data = JSON.parse(await file.text());
         if (data.schemaVersion !== 1 || data.engine !== 'real-statevector-ry-cnot-v1' || !Array.isArray(data.history)) throw new Error('Unsupported run format. Export JSON from this workbench.');
         VQE.validateConfig(data.config);
-        await replay(data.config, data.history.length - 1, 'Imported · recomputed');
+        const checkpoint = data.learningCheckpoint ? VQEEvolution.validateMemory(data.learningCheckpoint, data.config) : null;
+        await replay(data.config, data.history.length - 1, 'Imported · recomputed', data.initialParameters);
+        if (checkpoint) { learned[VQEEvolution.key(data.config)] = checkpoint; persistLearning(); }
         notice('Imported setup replayed. Energies were recomputed locally.');
       } catch (error) { notice(error instanceof SyntaxError ? 'Invalid JSON file.' : error.message); }
       finally { e.target.value = ''; }
     });
     $('compareBtn').addEventListener('click', compare);
     $('saveRunBtn').addEventListener('click', () => {
-      saved.unshift({ config: { ...run.config }, iteration: run.iteration, best: run.best }); saved = saved.slice(0, 8);
+      saved.unshift({ config: { ...run.config }, initialParameters: run.history[0].parameters, iteration: run.iteration, best: run.best }); saved = saved.slice(0, 8);
       const persisted = persistNotebook(); renderNotebook();
       if (persisted) notice('Run saved in your browser notebook.');
     });
     $('shareBtn').addEventListener('click', async () => {
       const url = new URL(location.href); url.search = '';
       Object.entries(run.config).forEach(([key, value]) => url.searchParams.set(key, value)); url.searchParams.set('step', run.iteration);
+      url.searchParams.set('initial', JSON.stringify(run.history[0].parameters));
       try { await navigator.clipboard.writeText(url.href); notice('Reproducible setup link copied.'); }
       catch { history.replaceState(null, '', url.href); notice('Setup encoded in the address bar. Copy its URL to share.'); }
     });
     $('energyChart').addEventListener('pointermove', e => {
       const rect = e.currentTarget.getBoundingClientRect();
-      const index = Math.round((e.clientX - rect.left - 60) / (rect.width - 78) * run.config.iterations);
-      if (index < 0 || index >= run.history.length) { $('energyTooltip').hidden = true; return; }
-      const row = run.history[index]; $('energyTooltip').textContent = `Iteration ${index} · ${row.energy.toFixed(6)} ${run.problem.unit}`; $('energyTooltip').hidden = false;
+      const trace = evolution ? evolution.trace : run.history;
+      const index = Math.round((e.clientX - rect.left - 60) / (rect.width - 78) * (evolution ? Math.max(20, trace.length - 1) : run.config.iterations));
+      if (index < 0 || index >= trace.length) { $('energyTooltip').hidden = true; return; }
+      const row = trace[index]; $('energyTooltip').textContent = `Iteration ${row.iteration} · ${row.energy.toFixed(6)} ${run.problem.unit}`; $('energyTooltip').hidden = false;
     });
     $('energyChart').addEventListener('pointerleave', () => { $('energyTooltip').hidden = true; });
     const resize = () => { document.querySelector('[role="tablist"]').setAttribute('aria-orientation', matchMedia('(max-width:540px)').matches ? 'horizontal' : 'vertical'); cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(renderView); };
@@ -340,16 +422,23 @@
       if (e.code === 'Space') { e.preventDefault(); toggleRun(); }
       if (e.key.toLowerCase() === 'r') { try { reset(); } catch (error) { notice(error.message); } }
     });
-    const query = new URLSearchParams(location.search);
-    if (query.has('problem')) {
+    window.addEventListener('pagehide', persistLearning);
+    let resumeOnVisible = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { resumeOnVisible = busy; if (busy) { cancelWork(); setStatus('Paused · background'); updateButton(); } }
+      else if (resumeOnVisible) { resumeOnVisible = false; toggleRun(); }
+    });
+    if (query.get('example') === '1') example();
+    else if (query.has('problem')) {
       try {
         const config = { ...defaults };
         for (const key of Object.keys(config)) if (query.has(key)) config[key] = typeof config[key] === 'number' ? Number(query.get(key)) : query.get(key);
         const count = Number(query.get('step') || 0);
         VQE.validateConfig(config);
-        replay(config, count, 'Shared setup').catch(e => notice(e.message));
+        const initialParameters = query.has('initial') ? JSON.parse(query.get('initial')) : undefined;
+        replay(config, count, 'Shared setup', initialParameters).catch(e => notice(e.message));
       } catch (error) { notice(`Invalid shared setup: ${error.message}`); }
-    }
+    } else if (mode() === 'live') { busy = true; step(); }
   }
   init();
 })();

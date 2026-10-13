@@ -179,11 +179,17 @@
     });
   }
 
-  function createRun(input) {
+  function validateParameters(parameters, config) {
+    if (!Array.isArray(parameters) || parameters.length !== config.qubits * config.layers || parameters.some(p => !Number.isFinite(p) || Math.abs(p) > 1e6)) throw new Error('Invalid initial circuit parameters.');
+    return [...parameters];
+  }
+
+  function createRun(input, options = {}) {
     const config = validateConfig(input), problem = createProblem(config.problem, config.qubits);
     const random = seededRandom(config.seed);
     const objective = params => problem.energy(simulate(params, config.qubits, config.layers));
-    const params = Array.from({ length: config.qubits * config.layers }, () => random() * TAU - Math.PI);
+    const generated = Array.from({ length: config.qubits * config.layers }, () => random() * TAU - Math.PI);
+    const params = options.initialParameters === undefined ? generated : validateParameters(options.initialParameters, config);
     let parameters = params, bestParameters = [...params], best = objective(params), evaluations = 1;
     const initial = best, history = [{ iteration: 0, energy: best, best, parameters: [...params] }];
     const m = params.map(() => 0), v = params.map(() => 0);
@@ -223,7 +229,7 @@
         return true;
       },
       snapshot() {
-        return { schemaVersion: 1, engine: 'real-statevector-ry-cnot-v1', config: { ...config }, reference: problem.reference, initial, best, evaluations, bestParameters: [...bestParameters], history: history.map(row => ({ ...row, parameters: [...row.parameters] })) };
+        return { schemaVersion: 1, engine: 'real-statevector-ry-cnot-v1', config: { ...config }, initialParameters: [...history[0].parameters], reference: problem.reference, initial, best, evaluations, bestParameters: [...bestParameters], history: history.map(row => ({ ...row, parameters: [...row.parameters] })) };
       }
     };
   }
@@ -232,5 +238,5 @@
     return { rotations: qubits * layers, entanglers: (qubits - 1) * layers, parameters: qubits * layers, totalGates: (2 * qubits - 1) * layers, depth: qubits * layers, stateBytes: 8 * (1 << qubits) };
   }
 
-  return { PROBLEMS, OPTIMIZERS, TAU, seededRandom, validateConfig, applyRY, applyCNOT, simulate, expectation, gradient, minimumEigenvalue, createProblem, createRun, circuitStats };
+  return { PROBLEMS, OPTIMIZERS, TAU, seededRandom, validateConfig, validateParameters, applyRY, applyCNOT, simulate, expectation, gradient, minimumEigenvalue, createProblem, createRun, circuitStats };
 }));

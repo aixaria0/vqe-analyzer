@@ -6,7 +6,7 @@
 
 **Small circuits. Big questions.**
 
-An open quantum optimization workbench by **Aria Fani**. My first repository, now built around real calculations: inspect the circuit, follow the energy, and replay the experiment from its seed.
+An open quantum optimization workbench by **Aria Fani**. My first repository: inspect the circuit, follow the energy, and let a stochastic search retain what it learns.
 
 [Open the workbench](https://aixaria0.github.io/vqe-analyzer/)
 
@@ -27,10 +27,28 @@ There is no build step, backend, CDN, telemetry, account, or hardware connection
 
 The full Hamiltonian gives the exact reference through small-matrix Jacobi diagonalization, or direct minimization for diagonal objectives. The ansatz may not reach that reference. MaxCut uses the same RY/CX ansatz as the other experiments; it is not a QAOA implementation.
 
+## Live evolution is the default
+
+Opening the workbench starts a fresh stochastic search. Each cycle uses a new seed and real circuit evaluations. The search retains the best parameter vector, explores Gaussian mutations around it, and periodically makes a global random restart. Improvement reduces the mutation radius; stagnation expands it. The iteration budget is **steps per cycle**, not the lifetime of the search. It continues until paused.
+
+Best parameters and search state survive page reloads in browser storage, separately for each Hamiltonian, qubit count and layer count. Stored scores are recomputed from their circuit before use. This is optimization memory and adaptive search, not a claim that a language model or general intelligence is training itself. Current candidates can become worse while the retained best stays at least as good.
+
+Three explicit modes are available:
+
+| Mode | Initialization | What happens at the budget |
+| --- | --- | --- |
+| Live evolution (default) | Mutate the learned best or restart randomly | Start another cycle; retain the best |
+| Fresh random run | A new seed and new initial angles | Stop; Run again generates another start |
+| Fixed seed replay | User-selected seed or imported initial angles | Stop; repeat the exact experiment |
+
+**New random start** keeps learned best parameters. **Clear learned memory** discards that circuit's stored best. The landscape can follow the current angles or freeze its conditioning angles at initialization. Background tabs pause computation and resume when visible, preserving progress.
+
+JSON exports include the current cycle's initial angles and, for live searches, a validated learning checkpoint and recent cross-cycle trace. Import replays the current cycle and restores its checkpoint for subsequent live exploration. CSV exports the recent learning trace in live mode. Long traces are capped at 1,200 rows; the notebook keeps individual replayable cycles. Share links include the current cycle's actual initial angles, including warm starts.
+
 ## The workspace
 
 - **Overview:** actual energy convergence, best iterate, exact gap and basis probabilities. Above eight states, the probability chart shows the eight most likely states.
-- **Landscape:** a sampled two-angle slice of the real objective, with other angles fixed at initialization. The path is a projection of the optimization trajectory. It is not a full-dimensional landscape or a barren-plateau detector.
+- **Landscape:** a sampled two-angle slice of the real objective, with other angles following the current state or fixed at initialization. The path is a projection of the optimization trajectory. It is not a full-dimensional landscape or a barren-plateau detector.
 - **Circuit:** the generated gate diagram, circuit dimensions, amplitude-buffer memory and Hamiltonian.
 - **Parameters:** angle histories and exact parameter-shift gradients at the current state.
 - **Experiments:** same-seed comparisons of Adam, gradient descent and SPSA, plus a notebook of up to eight saved runs.
@@ -51,7 +69,7 @@ python3 -m http.server 8000
 
 Visit `http://localhost:8000`. If Node 22+ is available, `npm run serve` starts a server that exposes only the public app assets; no installation is needed for that command.
 
-The initial H₂ example is computed locally: Adam, 3 layers, learning rate 0.08, 100 iterations, seed 42. It reaches a best electronic energy of approximately **−1.857266974 Ha**, compared with **−1.857275030 Ha** from exact diagonalization. This is one reproducible experiment, not a general convergence guarantee.
+The explicitly selected fixed H₂ reference example is computed locally: Adam, 3 layers, learning rate 0.08, 100 iterations, seed 42. It reaches a best electronic energy of approximately **−1.857266974 Ha**, compared with **−1.857275030 Ha** from exact diagonalization. This is one reproducible experiment, not a general convergence guarantee.
 
 **Keyboard:** Space runs or pauses; R resets when focus is outside a control. Arrow keys, Home and End navigate the analysis tabs.
 
@@ -87,7 +105,7 @@ npm run test:python
 VQE_PYTHON_PARITY=1 npm test
 ```
 
-Tests cover analytic Bell states and bit order, known spectra and variational bounds, gradients against finite differences, deterministic optimizers, real evaluation counts, configuration validation, and NumPy/JavaScript parity. Browser tests cover desktop, tablet and mobile layouts; run lifecycle; all views; imports and exports; shared links; notebook replay; blocked storage; direct file loading; and automated WCAG A/AA checks in both themes. Automated accessibility checks supplement manual review.
+Tests cover analytic Bell states and bit order, known spectra and variational bounds, gradients against finite differences, deterministic replay, fresh random starts, retained elite parameters, adaptive mutations and global restarts, memory isolation, real evaluation counts, configuration validation, and NumPy/JavaScript parity. Browser tests cover desktop, tablet and mobile layouts; run lifecycle; all views; imports and exports; multi-cycle live search and retained memory after reload; shared links; notebook replay; blocked storage; direct file loading; and automated WCAG A/AA checks in both themes. Automated accessibility checks supplement manual review.
 
 GitHub Actions runs ESLint, unit tests on Node 22 and 24, Python parity, browser tests and CodeQL for JavaScript, Python and workflow files. Browser reports include screenshots and failure traces.
 
@@ -96,6 +114,7 @@ GitHub Actions runs ESLint, unit tests on Node 22 and 24, Python parity, browser
 ```text
 index.html / style.css   Interface and responsive themes
 engine.js               Statevector, Hamiltonians, gradients and optimizers
+evolution.js            Stochastic cycles, retained elite and adaptive mutations
 charts.js               Canvas plots and contour slices
 app.js                  Experiment lifecycle, UI, import/export and notebook
 vqe_solver.py           Independent NumPy H₂ reference
@@ -107,7 +126,7 @@ scripts/serve.cjs        Local static asset server
 
 The old interface interpolated toward predefined costs, moved angles randomly and displayed static performance scores. V2 evaluates the circuit directly. Placeholder QML, adaptive-growth and “Quantum Gem” presets were retired until they have implemented objectives. The optimizer labelled COBYLA did not implement COBYLA; the workbench now provides actual Adam, gradient descent and SPSA. Static noise and success-rate claims were removed. Chart.js is no longer required.
 
-This is a noiseless educational simulator, limited to small real-amplitude circuits. It does not model hardware noise, demonstrate a quantum advantage, validate industrial portfolio strategies, or prove global convergence.
+This is a noiseless educational simulator with a stochastic adaptive optimizer, limited to small real-amplitude circuits. It does not model hardware noise, demonstrate a quantum advantage, validate industrial portfolio strategies, or prove global convergence.
 
 ## Reading
 

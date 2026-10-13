@@ -24,7 +24,7 @@ window.VQECharts = (() => {
     if (Math.abs(value) < 0.001 && value !== 0) return value.toExponential(1);
     return value.toFixed(Math.abs(value) < 10 ? 2 : 0);
   }
-  function line(canvas, series, { reference, maxX = 100, label = 'ENERGY', fill = true } = {}) {
+  function line(canvas, series, { reference, maxX = 100, xOffset = 0, label = 'ENERGY', fill = true } = {}) {
     const plot = prepare(canvas);
     if (!plot) return;
     const { ctx, width, height, colors } = plot;
@@ -51,7 +51,7 @@ window.VQECharts = (() => {
     ctx.textAlign = 'center';
     for (let i = 0; i <= 4; i++) {
       const value = Math.round(maxX * i / 4);
-      ctx.fillStyle = colors.faint; ctx.fillText(String(value), x(value), bottom + 17);
+      ctx.fillStyle = colors.faint; ctx.fillText(String(value + xOffset), x(value), bottom + 17);
     }
     ctx.fillText('ITERATION', (left + right) / 2, height - 4);
     ctx.save(); ctx.translate(12, (top + bottom) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(label, 0, 0); ctx.restore();
