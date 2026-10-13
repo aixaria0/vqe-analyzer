@@ -1,6 +1,6 @@
 {
   "name": "vqe-analyzer",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "An interactive Variational Quantum Eigensolver (VQE) analysis tool",
   "main": "engine.js",
   "private": true,

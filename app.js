@@ -3,21 +3,21 @@
 
 (() => {
   const $ = id => document.getElementById(id);
-  const defaults = { problem: 'h2', qubits: 2, layers: 3, optimizer: 'Adam', learningRate: 0.08, iterations: 100, seed: 42 };
+  const defaults = { problem: 'h2', qubits: 2, layers: 3, optimizer: 'Adam', learningRate: 0.08, iterations: 100, seed: VQEEvolution.randomSeed() };
   const names = { overview: 'Overview', landscape: 'Energy landscape', circuit: 'Quantum circuit', parameters: 'Parameters', experiments: 'Experiments' };
   let run, timer = null, busy = false, activeView = 'overview', computeMs = 0, landscapeData = null;
   let comparison = [], comparisonToken = 0, noticeTimer, resizeFrame;
   let saved = [];
   let evolution = null, learned = {}, learningStorageAvailable = true;
-  const configControls = ['problemSelect', 'optimizerSelect', 'learningRate', 'maxIterations', 'qubits', 'layers', 'seed'];
+  const configControls = ['problemSelect', 'optimizerSelect', 'learningRate', 'maxIterations', 'qubits', 'layers'];
 
   const mode = () => $('runMode').value;
   function syncMode() {
-    const live = mode() === 'live', fixed = mode() === 'fixed';
-    $('learningPanel').hidden = !live; $('seed').readOnly = !fixed;
-    $('seedTag').textContent = fixed ? 'REPLAYABLE' : 'FRESH SEED';
-    $('seedHelp').textContent = fixed ? 'Fixed seed and initial angles reproduce the same trajectory.' : 'A fresh seed is generated for each new run or learning cycle.';
-    $('modeHelp').textContent = live ? 'Retain better parameters, adapt exploration, and keep learning until paused.' : fixed ? 'One repeatable experiment with a fixed seed.' : 'One independent run with new random initial angles each time.';
+    const live = mode() === 'live';
+    $('learningPanel').hidden = !live; $('seed').readOnly = true;
+    $('seedTag').textContent = 'FRESH SEED';
+    $('seedHelp').textContent = 'A fresh seed is generated for each new run or learning cycle.';
+    $('modeHelp').textContent = live ? 'Retain better parameters, adapt exploration, and keep learning until paused.' : 'One independent run with new random initial angles each time.';
   }
   function memoryFor(config) {
     const key = VQEEvolution.key(config);
@@ -62,7 +62,7 @@
   }
   function reset(config = readConfig(), status = 'Ready', options = {}) {
     cancelWork();
-    if (mode() !== 'fixed') config = { ...config, seed: VQEEvolution.randomSeed() };
+    config = { ...config, seed: VQEEvolution.randomSeed() };
     evolution = mode() === 'live' ? VQEEvolution.createEvolution(config, { memory: memoryFor(config), globalRestart: options.globalRestart }) : null;
     run = evolution ? evolution.run : VQE.createRun(config, options);
     writeConfig(run.config); syncMode(); computeMs = 0;
@@ -125,10 +125,10 @@
     } catch (error) { notice(error.message); $('seed').reportValidity(); }
   }
   function example() {
-    cancelWork(); $('runMode').value = 'fixed'; $('landscapeMode').value = 'initial';
+    cancelWork(); $('runMode').value = 'random'; $('landscapeMode').value = 'follow';
     reset(defaults);
     const start = performance.now(); while (run.step()) { /* compute the example, rather than load fabricated data */ }
-    computeMs = performance.now() - start; setStatus('Example · seed 42'); update();
+    computeMs = performance.now() - start; setStatus('Example complete'); update();
   }
   function switchView(view, focus = false) {
     activeView = view;
@@ -219,7 +219,8 @@
   async function compare() {
     if (busy) { cancelWork(); setStatus('Paused'); updateButton(); }
     const token = ++comparisonToken;
-    comparison = VQE.OPTIMIZERS.map(optimizer => VQE.createRun({ ...run.config, optimizer }, { initialParameters: run.history[0].parameters }));
+    const seed = VQEEvolution.randomSeed();
+    comparison = VQE.OPTIMIZERS.map(optimizer => VQE.createRun({ ...run.config, seed, optimizer }));
     $('compareBtn').disabled = true; $('compareBtn').textContent = 'Comparing…';
     while (comparison[0].iteration < run.config.iterations && token === comparisonToken) {
       // Yield regularly so reset, configuration changes, and navigation remain responsive.
@@ -254,30 +255,29 @@
     const rows = (evolution ? evolution.trace : run.history).map(r => [r.iteration, ...(evolution ? [r.cycle] : []), r.energy, r.best, r.best - run.problem.reference, ...r.parameters].join(','));
     download([header.join(','), ...rows].join('\n') + '\n', 'csv', 'text/csv');
   }
-  async function replay(config, count, label, initialParameters) {
-    VQE.validateConfig(config);
-    if (!Number.isInteger(count) || count < 0 || count > config.iterations) throw new Error('Invalid replay length.');
-    if (initialParameters !== undefined) VQE.validateParameters(initialParameters, config);
-    cancelWork(); $('runMode').value = 'fixed';
-    reset(config, 'Replaying…', { initialParameters });
-    const token = comparisonToken;
-    $('runBtn').disabled = true;
-    $('mobileRunBtn').disabled = true;
-    try {
-      while (run.iteration < count && token === comparisonToken) {
-        const start = performance.now();
-        do { const t = performance.now(); run.step(); computeMs += performance.now() - t; } while (performance.now() - start < 12 && run.iteration < count);
-        update(); await new Promise(resolve => setTimeout(resolve, 0));
-      }
-      if (token === comparisonToken) { setStatus(label); update(); }
-    } finally { $('runBtn').disabled = false; $('mobileRunBtn').disabled = false; }
+  function restoreLearning(config, parameters, checkpoint, label) {
+    config = VQE.validateConfig(config);
+    let candidate = checkpoint ? VQEEvolution.validateMemory(checkpoint, config) : null;
+    if (parameters) {
+      const evaluated = VQEEvolution.validateMemory({
+        version: 'ry-cx-objectives-v1', key: VQEEvolution.key(config), bestParameters: parameters
+      }, config);
+      if (!candidate || evaluated.best < candidate.best) candidate = evaluated;
+    }
+    if (!candidate) throw new Error('No valid circuit parameters to continue from.');
+    cancelWork(); evolution = null;
+    const previous = memoryFor(config);
+    if (!previous || candidate.best < previous.best) learned[VQEEvolution.key(config)] = candidate;
+    $('runMode').value = 'live';
+    reset(config, label);
+    persistLearning();
   }
   function persistNotebook() {
     try { localStorage.setItem('vqe-notebook-v1', JSON.stringify(saved)); return true; }
     catch { notice('Browser storage is unavailable. This notebook is kept in memory; export JSON to keep your run.'); return false; }
   }
   function renderNotebook() {
-    if (!saved.length) { $('savedRuns').innerHTML = '<div class="empty-notebook">Your next discovery belongs here.<br>Save a run to compare or replay it later.</div>'; return; }
+    if (!saved.length) { $('savedRuns').innerHTML = '<div class="empty-notebook">Your next discovery belongs here.<br>Save a run to continue exploring it later.</div>'; return; }
     $('savedRuns').replaceChildren(...saved.map((entry, i) => {
       const row = document.createElement('div'); row.className = 'saved-row';
       const info = document.createElement('div'); info.className = 'saved-info';
@@ -285,8 +285,8 @@
       const detail = document.createElement('small'); detail.textContent = `${entry.config.qubits}q / ${entry.config.layers}L · seed ${entry.config.seed} · ${entry.iteration} iterations`;
       info.append(title, detail);
       const energy = document.createElement('span'); energy.className = 'saved-energy'; energy.textContent = entry.best.toFixed(5);
-      const restore = document.createElement('button'); restore.className = 'button small'; restore.textContent = 'Replay';
-      restore.addEventListener('click', () => { switchView('overview'); replay(entry.config, entry.iteration, 'Replayed run', entry.initialParameters).catch(e => notice(e.message)); });
+      const restore = document.createElement('button'); restore.className = 'button small'; restore.textContent = 'Continue search';
+      restore.addEventListener('click', () => { switchView('overview'); try { restoreLearning(entry.config, entry.bestParameters || entry.initialParameters, null, 'Saved learning restored'); } catch (e) { notice(e.message); } });
       const remove = document.createElement('button'); remove.className = 'icon-button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove saved run ${i + 1}`);
       remove.addEventListener('click', () => { saved.splice(i, 1); persistNotebook(); renderNotebook(); });
       row.append(info, energy, restore, remove); return row;
@@ -295,7 +295,7 @@
   function init() {
     const query = new URLSearchParams(location.search);
     let startupConfig = { ...defaults };
-    if (query.has('problem') || query.get('example') === '1') $('runMode').value = 'fixed';
+    if (query.get('example') === '1') $('runMode').value = 'random';
     try {
       document.documentElement.dataset.theme = localStorage.getItem('vqe-theme') === 'light' ? 'light' : 'dark';
       const data = JSON.parse(localStorage.getItem('vqe-notebook-v1') || '[]');
@@ -311,7 +311,7 @@
         const setup = JSON.parse(localStorage.getItem('vqe-last-setup-v1') || 'null');
         if (setup) {
           startupConfig = VQE.validateConfig(setup.config);
-          if (['live', 'random', 'fixed'].includes(setup.mode)) $('runMode').value = setup.mode;
+          if (['live', 'random'].includes(setup.mode)) $('runMode').value = setup.mode;
         }
       }
     } catch { /* Storage is optional; the simulator also works from file://. */ }
@@ -387,23 +387,29 @@
         if (data.schemaVersion !== 1 || data.engine !== 'real-statevector-ry-cnot-v1' || !Array.isArray(data.history)) throw new Error('Unsupported run format. Export JSON from this workbench.');
         VQE.validateConfig(data.config);
         const checkpoint = data.learningCheckpoint ? VQEEvolution.validateMemory(data.learningCheckpoint, data.config) : null;
-        await replay(data.config, data.history.length - 1, 'Imported · recomputed', data.initialParameters);
-        if (checkpoint) { learned[VQEEvolution.key(data.config)] = checkpoint; persistLearning(); }
-        notice('Imported setup replayed. Energies were recomputed locally.');
+        if (data.history.length < 1 || data.history.length > data.config.iterations + 1) throw new Error('Invalid history length.');
+        const problem = VQE.createProblem(data.config.problem, data.config.qubits);
+        let best = Infinity, parameters;
+        for (const row of data.history) {
+          const angles = VQE.validateParameters(row.parameters, data.config);
+          const energy = problem.energy(VQE.simulate(angles, data.config.qubits, data.config.layers));
+          if (energy < best) { best = energy; parameters = angles; }
+        }
+        restoreLearning(data.config, parameters, checkpoint, 'Imported learning restored');
+        notice('Best circuit parameters restored. Continue learning with fresh exploration.');
       } catch (error) { notice(error instanceof SyntaxError ? 'Invalid JSON file.' : error.message); }
       finally { e.target.value = ''; }
     });
     $('compareBtn').addEventListener('click', compare);
     $('saveRunBtn').addEventListener('click', () => {
-      saved.unshift({ config: { ...run.config }, initialParameters: run.history[0].parameters, iteration: run.iteration, best: run.best }); saved = saved.slice(0, 8);
+      saved.unshift({ config: { ...run.config }, initialParameters: run.history[0].parameters, bestParameters: evolution ? evolution.bestParameters : run.bestParameters, iteration: run.iteration, best: evolution ? evolution.best : run.best }); saved = saved.slice(0, 8);
       const persisted = persistNotebook(); renderNotebook();
       if (persisted) notice('Run saved in your browser notebook.');
     });
     $('shareBtn').addEventListener('click', async () => {
       const url = new URL(location.href); url.search = '';
-      Object.entries(run.config).forEach(([key, value]) => url.searchParams.set(key, value)); url.searchParams.set('step', run.iteration);
-      url.searchParams.set('initial', JSON.stringify(run.history[0].parameters));
-      try { await navigator.clipboard.writeText(url.href); notice('Reproducible setup link copied.'); }
+      Object.entries(run.config).filter(([key]) => key !== 'seed').forEach(([key, value]) => url.searchParams.set(key, value));
+      try { await navigator.clipboard.writeText(url.href); notice('Setup link copied. Each visit starts fresh exploration.'); }
       catch { history.replaceState(null, '', url.href); notice('Setup encoded in the address bar. Copy its URL to share.'); }
     });
     $('energyChart').addEventListener('pointermove', e => {
@@ -432,11 +438,9 @@
     else if (query.has('problem')) {
       try {
         const config = { ...defaults };
-        for (const key of Object.keys(config)) if (query.has(key)) config[key] = typeof config[key] === 'number' ? Number(query.get(key)) : query.get(key);
-        const count = Number(query.get('step') || 0);
+        for (const key of Object.keys(config)) if (key !== 'seed' && query.has(key)) config[key] = typeof config[key] === 'number' ? Number(query.get(key)) : query.get(key);
         VQE.validateConfig(config);
-        const initialParameters = query.has('initial') ? JSON.parse(query.get('initial')) : undefined;
-        replay(config, count, 'Shared setup', initialParameters).catch(e => notice(e.message));
+        $('runMode').value = 'live'; reset(config); busy = true; step();
       } catch (error) { notice(`Invalid shared setup: ${error.message}`); }
     } else if (mode() === 'live') { busy = true; step(); }
   }

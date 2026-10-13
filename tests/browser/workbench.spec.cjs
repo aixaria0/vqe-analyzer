@@ -6,15 +6,15 @@ const VQE = require('../../engine.js');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/?example=1');
-  await expect(page.locator('#runStatus')).toHaveText('Example · seed 42');
+  await expect(page.locator('#runStatus')).toHaveText('Example complete');
 });
 
-test('computed example, views and layouts work without external requests', async ({ page }, testInfo) => {
+test('freshly computed example, views and layouts work without external requests', async ({ page }, testInfo) => {
   const errors = [], external = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (!request.url().startsWith('http://127.0.0.1:8000')) external.push(request.url()); });
   await page.reload();
-  await expect(page.locator('#bestEnergy')).toHaveText('-1.85727');
+  expect(Number(await page.locator('#bestEnergy').textContent())).toBeGreaterThanOrEqual(-1.85728);
   await expect(page.locator('#evaluationCount')).toContainText('1,301');
   for (const view of ['overview', 'landscape', 'circuit', 'parameters', 'experiments']) {
     await page.locator(`#tab-${view}`).click();
@@ -39,12 +39,12 @@ test('pause and resume preserve progress; reset cancels pending steps', async ({
   await expect(page.locator('#iteration')).toHaveText('0'); await expect(page.locator('#runStatus')).toHaveText('Ready');
 });
 
-test('budget completion and run-again start a fresh reproducible experiment', async ({ page }) => {
+test('budget completion and run-again generate fresh randomness', async ({ page }) => {
   await page.locator('#maxIterations').evaluate(el => { el.value = '20'; el.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.locator('#runBtn').click(); await expect(page.locator('#runStatus')).toHaveText('Budget complete');
-  const best = await page.locator('#bestEnergy').textContent();
+  const seed = await page.locator('#seed').inputValue();
   await page.locator('#runBtn').click(); await expect.poll(async () => Number(await page.locator('#iteration').textContent())).toBeLessThan(20);
-  await expect(page.locator('#runStatus')).toHaveText('Budget complete'); await expect(page.locator('#bestEnergy')).toHaveText(best);
+  await expect(page.locator('#runStatus')).toHaveText('Budget complete'); expect(await page.locator('#seed').inputValue()).not.toBe(seed);
 });
 
 test('changing architecture resets dimensions, bounds slices and cancels a running job', async ({ page }) => {
@@ -64,7 +64,7 @@ test('optimizer comparison reports real same-seed results and clears on config c
   await page.locator('#tab-experiments').click(); await page.locator('#compareBtn').click();
   await expect(page.locator('#comparisonRows tr')).toHaveCount(3);
   await expect(page.locator('#comparisonRows')).toContainText('1301'); await expect(page.locator('#comparisonRows')).toContainText('301');
-  await expect(page.locator('#comparisonRows tr').first()).toContainText('-1.857267');
+  expect(Number(await page.locator('#comparisonRows tr').first().locator('td').nth(1).textContent())).toBeGreaterThanOrEqual(-1.85728);
   await page.locator('#optimizerSelect').selectOption('SPSA');
   await expect(page.locator('#comparisonRows')).toContainText('Run a comparison');
 });
@@ -72,47 +72,41 @@ test('optimizer comparison reports real same-seed results and clears on config c
 test('JSON and CSV export actual data; imports recompute instead of trusting energies', async ({ page }) => {
   const jsonEvent = page.waitForEvent('download'); await page.locator('#exportJsonBtn').click();
   const jsonFile = await jsonEvent; const data = JSON.parse(await fs.readFile(await jsonFile.path(), 'utf8'));
-  expect(data.history.length).toBe(101); expect(data.best).toBeCloseTo(-1.8572669744422758, 10);
+  expect(data.history.length).toBe(101); expect(data.best).toBeGreaterThanOrEqual(-1.85727503020238 - 1e-9);
   const csvEvent = page.waitForEvent('download'); await page.locator('#exportCsvBtn').click();
   const csvFile = await csvEvent; const csv = await fs.readFile(await csvFile.path(), 'utf8');
   expect(csv.trim().split('\n').length).toBe(102); expect(csv).toContain('theta_5');
   data.best = -999; data.history.forEach(row => { row.energy = -999; });
   await page.locator('#importFile').setInputFiles({ name: 'run.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)) });
-  await expect(page.locator('#runStatus')).toHaveText('Imported · recomputed');
-  await expect(page.locator('#bestEnergy')).toHaveText('-1.85727');
-  const expected = VQE.createRun(data.config); while (expected.step()) { /* regenerate trace */ }
-  expect(data.config).toEqual(expected.config);
+  await expect(page.locator('#runStatus')).toHaveText('Imported learning restored');
+  const verified = Math.min(...data.history.map(row => VQE.createProblem('h2', 2).energy(VQE.simulate(row.parameters, 2, 3))));
+  expect(Number(await page.locator('#bestEnergy').textContent())).toBeCloseTo(verified, 4);
+  expect(await page.locator('#seed').inputValue()).not.toBe(String(data.config.seed));
+  await expect(page.locator('#runMode')).toHaveValue('live');
 });
 
-test('invalid files and seed values display errors without breaking the current experiment', async ({ page }) => {
+test('invalid files display errors and seeds cannot be edited', async ({ page }) => {
   await page.locator('#importFile').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{') });
   await expect(page.locator('#notice')).toHaveText('Invalid JSON file.');
-  await page.locator('#seed').fill('-1'); await page.locator('#seed').press('Tab');
-  await expect(page.locator('#notice')).toContainText('Seed must be');
-  await page.locator('#runBtn').click(); await expect(page.locator('#iteration')).toHaveText('100');
-  await page.locator('#seed').fill('0'); await page.locator('#seed').press('Tab');
-  await expect(page.locator('#iteration')).toHaveText('0');
-  await page.locator('#runBtn').click();
-  await expect.poll(async () => Number(await page.locator('#iteration').textContent())).toBeGreaterThan(0);
-  await page.locator('#seed').fill('-1'); await page.locator('#seed').press('Tab');
-  await expect(page.locator('#runStatus')).toHaveText('Invalid setup');
-  const paused = await page.locator('#iteration').textContent();
-  await page.waitForTimeout(150); await expect(page.locator('#iteration')).toHaveText(paused);
+  await expect(page.locator('#seed')).toHaveAttribute('readonly', '');
+  await expect(page.locator('#runMode option')).toHaveCount(2);
 });
 
-test('notebook survives reload and replays the saved experiment', async ({ page }) => {
+test('notebook survives reload and restores parameters for fresh exploration', async ({ page }) => {
   await page.locator('#tab-experiments').click(); await page.locator('#saveRunBtn').click();
   await expect(page.locator('.saved-row')).toHaveCount(1); await page.reload();
   await page.locator('#tab-experiments').click(); await expect(page.locator('.saved-row')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Replay', exact: true }).click();
-  await expect(page.locator('#runStatus')).toHaveText('Replayed run'); await expect(page.locator('#bestEnergy')).toHaveText('-1.85727');
+  await page.getByRole('button', { name: 'Continue search', exact: true }).click();
+  await expect(page.locator('#runStatus')).toHaveText('Saved learning restored'); expect(Number(await page.locator('#bestEnergy').textContent())).toBeGreaterThanOrEqual(-1.85728);
   await page.locator('#tab-experiments').click(); await page.getByRole('button', { name: 'Remove saved run 1' }).click();
   await expect(page.locator('.saved-row')).toHaveCount(0);
 });
 
-test('shared links replay seed zero and reject out-of-range work', async ({ page }) => {
-  await page.goto('/?problem=h2&seed=0&iterations=20&step=20'); await expect(page.locator('#runStatus')).toHaveText('Shared setup');
-  await expect(page.locator('#seed')).toHaveValue('0'); await expect(page.locator('#iteration')).toHaveText('20');
+test('legacy shared links start fresh live exploration and reject invalid circuits', async ({ page }) => {
+  await page.goto('/?problem=h2&seed=0&iterations=20&step=20');
+  await expect(page.locator('#runMode')).toHaveValue('live');
+  await expect(page.locator('#runStatus')).toContainText('Learning');
+  expect(await page.locator('#seed').inputValue()).not.toBe('0');
   await page.goto('/?problem=h2&qubits=99'); await expect(page.locator('#notice')).toContainText('Invalid shared setup');
   await expect(page.locator('#runStatus')).toHaveText('Ready');
 });
@@ -130,7 +124,7 @@ test('theme, keyboard tabs and numerical data are usable', async ({ page }) => {
 test('blocked local storage and direct file loading are supported', async ({ page }) => {
   await page.addInitScript(() => { Object.defineProperty(window, 'localStorage', { get() { throw new Error('Storage blocked'); } }); });
   await page.goto('file://' + path.resolve(__dirname, '../../index.html') + '?example=1');
-  await expect(page.locator('#bestEnergy')).toHaveText('-1.85727');
+  expect(Number(await page.locator('#bestEnergy').textContent())).toBeGreaterThanOrEqual(-1.85728);
   await page.locator('#tab-experiments').click(); await page.locator('#saveRunBtn').click();
   await expect(page.locator('#notice')).toContainText('kept in memory');
 });
