@@ -33,17 +33,16 @@ Opening the workbench starts a fresh stochastic search. Each cycle uses a new se
 
 Best parameters and search state survive page reloads in browser storage, separately for each Hamiltonian, qubit count and layer count. Stored scores are recomputed from their circuit before use. This is optimization memory and adaptive search, not a claim that a language model or general intelligence is training itself. Current candidates can become worse while the retained best stays at least as good.
 
-Three explicit modes are available:
+Two search modes are available:
 
 | Mode | Initialization | What happens at the budget |
 | --- | --- | --- |
 | Live evolution (default) | Mutate the learned best or restart randomly | Start another cycle; retain the best |
 | Fresh random run | A new seed and new initial angles | Stop; Run again generates another start |
-| Fixed seed replay | User-selected seed or imported initial angles | Stop; repeat the exact experiment |
 
 **New random start** keeps learned best parameters. **Clear learned memory** discards that circuit's stored best. The landscape can follow the current angles or freeze its conditioning angles at initialization. Background tabs pause computation and resume when visible, preserving progress.
 
-JSON exports include the current cycle's initial angles and, for live searches, a validated learning checkpoint and recent cross-cycle trace. Import replays the current cycle and restores its checkpoint for subsequent live exploration. CSV exports the recent learning trace in live mode. Long traces are capped at 1,200 rows; the notebook keeps individual replayable cycles. Share links include the current cycle's actual initial angles, including warm starts.
+JSON exports include the current cycle's initial angles and, for live searches, a validated learning checkpoint and recent cross-cycle trace. Import reevaluates saved circuit parameters and restores the best as a starting point for fresh live exploration. CSV exports the recent learning trace in live mode. Long traces are capped at 1,200 rows; the notebook keeps best parameters to continue exploring later. Share links carry circuit settings; every visit starts fresh exploration.
 
 ## The workspace
 
@@ -53,7 +52,7 @@ JSON exports include the current cycle's initial angles and, for live searches, 
 - **Parameters:** angle histories and exact parameter-shift gradients at the current state.
 - **Experiments:** same-seed comparisons of Adam, gradient descent and SPSA, plus a notebook of up to eight saved runs.
 
-Run, pause, resume or reset. Changing the setup resets the experiment and cancels pending work. Export the numerical trace as CSV or a complete run as JSON. Import and notebook replay recompute the energies instead of trusting stored results. Share links encode the setup and replay length. Dark and light themes, keyboard navigation and mobile controls are included.
+Run, pause, resume or reset. Changing the setup resets the experiment and cancels pending work. Export the numerical trace as CSV or a complete run as JSON. Imports and notebook restores recompute circuit energies before continuing stochastic search. Share links encode circuit settings. Dark and light themes, keyboard navigation and mobile controls are included.
 
 Notebook and theme preferences are stored in the browser when storage is available. Export JSON for a portable copy; clearing browser storage clears the notebook.
 
@@ -69,7 +68,7 @@ python3 -m http.server 8000
 
 Visit `http://localhost:8000`. If Node 22+ is available, `npm run serve` starts a server that exposes only the public app assets; no installation is needed for that command.
 
-The explicitly selected fixed H₂ reference example is computed locally: Adam, 3 layers, learning rate 0.08, 100 iterations, seed 42. It reaches a best electronic energy of approximately **−1.857266974 Ha**, compared with **−1.857275030 Ha** from exact diagonalization. This is one reproducible experiment, not a general convergence guarantee.
+The H₂ example uses a fresh random initialization on each click. Exact diagonalization supplies the electronic ground-state reference of approximately **−1.857275030 Ha**; the variational result depends on the run.
 
 **Keyboard:** Space runs or pauses; R resets when focus is outside a control. Arrow keys, Home and End navigate the analysis tabs.
 
@@ -105,7 +104,7 @@ npm run test:python
 VQE_PYTHON_PARITY=1 npm test
 ```
 
-Tests cover analytic Bell states and bit order, known spectra and variational bounds, gradients against finite differences, deterministic replay, fresh random starts, retained elite parameters, adaptive mutations and global restarts, memory isolation, real evaluation counts, configuration validation, and NumPy/JavaScript parity. Browser tests cover desktop, tablet and mobile layouts; run lifecycle; all views; imports and exports; multi-cycle live search and retained memory after reload; shared links; notebook replay; blocked storage; direct file loading; and automated WCAG A/AA checks in both themes. Automated accessibility checks supplement manual review.
+Tests cover analytic Bell states and bit order, known spectra and variational bounds, gradients against finite differences, deterministic replay, fresh random starts, retained elite parameters, adaptive mutations and global restarts, memory isolation, real evaluation counts, configuration validation, and NumPy/JavaScript parity. Browser tests cover desktop, tablet and mobile layouts; run lifecycle; all views; imports and exports; multi-cycle live search and retained memory after reload; shared links; notebook learning restore; blocked storage; direct file loading; and automated WCAG A/AA checks in both themes. Automated accessibility checks supplement manual review.
 
 GitHub Actions runs ESLint, unit tests on Node 22 and 24, Python parity, browser tests and CodeQL for JavaScript, Python and workflow files. Browser reports include screenshots and failure traces.
 
